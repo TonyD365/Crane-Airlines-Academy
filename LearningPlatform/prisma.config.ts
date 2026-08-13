@@ -20,11 +20,17 @@ try {
   // Non-fatal: continue and rely on process.env
 }
 
+const directDatabaseUrl = process.env["DIRECT_DATABASE_URL"];
 const databaseUrl = process.env["DATABASE_URL"];
 const payloadDatabaseUrl = process.env["PAYLOAD_DATABASE_URL"];
 
-// DATABASE_URL takes precedence over PAYLOAD_DATABASE_URL when both are set.
-const rawUrl = databaseUrl ?? payloadDatabaseUrl ?? undefined;
+// Prisma migrations should use the direct database connection.
+// Runtime/serverless application connections should use DATABASE_URL.
+const rawUrl =
+  directDatabaseUrl ??
+  databaseUrl ??
+  payloadDatabaseUrl ??
+  undefined;
 
 /**
  * Sanitize a Postgres connection URL that may be malformed.
