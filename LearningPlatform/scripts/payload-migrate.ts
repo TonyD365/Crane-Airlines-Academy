@@ -286,23 +286,9 @@ async function migratePayload() {
 
       console.log('[SUCCESS] Manual migrations applied successfully')
     } catch (manualErr) {
-      console.error('[WARNING] Manual migration runner failed:', manualErr)
-
-      // Try executing raw schema.sql if present as a robust fallback
-      const schemaSqlPath = path.join(resolvedMigrationDir, 'schema.sql')
-      let schemaApplied = false
-      if (fs.existsSync(schemaSqlPath)) {
-        console.log('[INFO] Attempting to apply raw SQL from schema.sql as fallback')
-        try {
-          const sqlText = fs.readFileSync(schemaSqlPath, 'utf8')
-          console.log('   [INFO] Executing schema.sql via DB pool')
-          await pool.query(sqlText)
-          console.log('[SUCCESS] schema.sql executed successfully')
-          schemaApplied = true
-        } catch (sqlErr) {
-          console.error('[ERROR] Failed to execute schema.sql fallback:', sqlErr)
-        }
-      }
+      console.error('[ERROR] Manual migration runner failed:', manualErr)
+      throw manualErr
+    }
 
       if (!schemaApplied) {
         console.error('[ERROR] Manual migration runner failed and schema.sql fallback unavailable')
