@@ -319,7 +319,15 @@ async function migratePayload() {
     }
     
     // Check for expected collection tables
-    const expectedTables = ['courses', 'payload_users', 'modules', 'lessons', 'tasks', 'media']
+    const expectedTables = [
+      'courses',
+      'payload_users',
+      'modules',
+      'lessons',
+      'tasks',
+      'tasks_rels',
+      'media'
+    ]
     const foundTables = new Set(allTables)
     
     console.log('')
