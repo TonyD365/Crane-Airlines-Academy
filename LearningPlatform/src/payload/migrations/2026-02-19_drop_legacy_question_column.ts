@@ -17,16 +17,26 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
 
   await db.execute(sql`
     -- Safety: copy any remaining rows that still have question but not prompt
-    UPDATE "payload"."tasks"
-      SET "prompt" = "question"
-    WHERE "prompt" IS NULL
-      AND "question" IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM information_schema.columns
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1
+        FROM information_schema.columns
         WHERE table_schema = 'payload'
-          AND table_name   = 'tasks'
-          AND column_name  = 'question'
-      );
+          AND table_name = 'tasks'
+          AND column_name = 'question'
+      ) THEN
+
+        EXECUTE '
+          UPDATE "payload"."tasks"
+          SET "prompt" = "question"
+          WHERE "prompt" IS NULL
+            AND "question" IS NOT NULL
+        ';
+
+      END IF;
+    END
+    $$;
 
     -- Drop the old column (wrapped in a conditional so re-running is safe)
     DO $$
