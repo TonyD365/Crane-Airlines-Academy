@@ -30,8 +30,35 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     ALTER TABLE IF EXISTS "payload"."modules" ADD COLUMN IF NOT EXISTS "order" integer;
 
     -- Populate simple mappings where possible
-    UPDATE "payload"."modules" SET "order" = COALESCE("order", "order_index");
-    UPDATE "payload"."lessons" SET "order" = COALESCE("order", "order_index");
+    DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'payload'
+            AND table_name = 'modules'
+            AND column_name = 'order_index'
+        ) THEN
+          EXECUTE '
+            UPDATE "payload"."modules"
+            SET "order" = COALESCE("order", "order_index")
+          ';
+        END IF;
+
+        IF EXISTS (
+          SELECT 1
+          FROM information_schema.columns
+          WHERE table_schema = 'payload'
+            AND table_name = 'lessons'
+            AND column_name = 'order_index'
+        ) THEN
+          EXECUTE '
+            UPDATE "payload"."lessons"
+            SET "order" = COALESCE("order", "order_index")
+          ';
+        END IF;
+      END
+    $$;
     
     -- Ensure legacy order_index doesn't block inserts: set defaults and allow NULL
     DO $$
