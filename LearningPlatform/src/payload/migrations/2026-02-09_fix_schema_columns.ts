@@ -88,8 +88,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     ALTER TABLE IF EXISTS "payload"."tasks" ADD COLUMN IF NOT EXISTS "order" integer DEFAULT 0;
     ALTER TABLE IF EXISTS "payload"."tasks" ADD COLUMN IF NOT EXISTS "is_published" boolean DEFAULT false;
 
-    -- Migrate existing 'question' -> 'prompt' where applicable
-    UPDATE "payload"."tasks" SET "prompt" = "question" WHERE "prompt" IS NULL AND "question" IS NOT NULL;
+    
     -- Ensure points default
     UPDATE "payload"."tasks" SET "points" = COALESCE("points", 1);
     `)
