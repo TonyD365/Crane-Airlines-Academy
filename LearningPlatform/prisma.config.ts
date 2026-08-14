@@ -20,14 +20,12 @@ try {
   // Non-fatal: continue and rely on process.env
 }
 
-const directDatabaseUrl = process.env["DIRECT_DATABASE_URL"];
+const migrationDatabaseUrl = process.env["MIGRATION_DATABASE_URL"];
 const databaseUrl = process.env["DATABASE_URL"];
 const payloadDatabaseUrl = process.env["PAYLOAD_DATABASE_URL"];
 
-// Prisma migrations should use the direct database connection.
-// Runtime/serverless application connections should use DATABASE_URL.
 const rawUrl =
-  directDatabaseUrl ??
+  migrationDatabaseUrl ??
   databaseUrl ??
   payloadDatabaseUrl ??
   undefined;
