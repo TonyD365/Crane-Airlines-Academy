@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 import { auth } from '@/auth';
 import { PUBLIC_PATHS, PUBLIC_PATH_PREFIXES } from '@/lib/public-routes';
+import { isStaffRole } from '@/lib/roles';
 
 // ─── CSP builder ──────────────────────────────────────────────────────────────
 
@@ -68,7 +69,7 @@ export default auth((req) => {
     if (!isLoggedIn) {
       return withCsp(NextResponse.redirect(new URL('/admin/login', nextUrl)))
     }
-    if (role !== 'ADMIN') {
+    if (!isStaffRole(role)) {
       return withCsp(NextResponse.redirect(new URL('/dashboard', nextUrl)))
     }
   }

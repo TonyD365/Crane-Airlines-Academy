@@ -3,7 +3,8 @@ import { z } from 'zod'
 import bcrypt from 'bcryptjs'
 import { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { requireAdmin, requireManager } from '@/lib/auth-helpers'
+import { isPresidentRole } from '@/lib/roles'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
 
 export async function GET(req: Request) {
@@ -85,7 +86,7 @@ function isStrongPassword(password: string): boolean {
 
 export async function POST(req: Request) {
   try {
-    const admin = await requireAdmin()
+    const admin = await requireManager()
 
     let json: unknown
     try {
@@ -101,6 +102,16 @@ export async function POST(req: Request) {
     }
 
     const { password, name, role, groupId } = parsed.data
+
+    // Only a President may create staff accounts; Managers can create students only.
+    const requestedRole = role ?? Role.STUDENT
+    if (requestedRole !== Role.STUDENT && !isPresidentRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Only a President can create Trainer, Manager, or President accounts' },
+        { status: 403 },
+      )
+    }
+
     if (!isStrongPassword(password)) {
       return NextResponse.json(
         { error: 'Password must include uppercase, lowercase, a number, and a special character' },

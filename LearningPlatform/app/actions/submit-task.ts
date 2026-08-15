@@ -9,6 +9,7 @@ import { checkLessonCompletion } from './lesson-progress'
 import { recalculateCourseProgress } from './course-progress'
 import { invalidateUserTagStatsCache } from '@/lib/analytics'
 import { evaluateTaskAnswer as scoreTaskAnswer } from '@/lib/evaluate-task-answer'
+import { isStaffRole } from '@/lib/roles'
 
 // Module-level cache for payload lookups (enabled only in test env)
 // Enable the short-lived module cache only when explicitly requested to avoid
@@ -55,7 +56,7 @@ export async function submitTaskAnswer(
     throw new Error('Task not found')
   }
 
-  if (!task.isPublished && session.user.role !== 'ADMIN') {
+  if (!task.isPublished && !isStaffRole(session.user.role)) {
     throw new Error('Task not found')
   }
 

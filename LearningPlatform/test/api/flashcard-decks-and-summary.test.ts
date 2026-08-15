@@ -13,7 +13,7 @@ const mockedAuth = vi.mocked(auth)
 
 function adminSession() {
   mockedAuth.mockResolvedValue({
-    user: { id: 'admin-1', email: 'admin@test.com', role: 'ADMIN', name: 'Admin', isPro: false },
+    user: { id: 'admin-1', email: 'admin@test.com', role: 'PRESIDENT', name: 'Admin', isPro: false },
   } as any)
 }
 

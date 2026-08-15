@@ -121,7 +121,7 @@ describe('auth-helpers', () => {
     })
 
     it('should accept different role types', async () => {
-      for (const role of ['STUDENT', 'ADMIN'] as Role[]) {
+      for (const role of ['STUDENT', 'PRESIDENT'] as Role[]) {
         mockedAuth.mockResolvedValueOnce({
           user: {
             id: 'user-123',
@@ -143,7 +143,7 @@ describe('auth-helpers', () => {
           id: 'admin-123',
           email: 'admin@example.com',
           name: 'Admin User',
-          role: 'ADMIN' as Role,
+          role: 'PRESIDENT' as Role,
         },
       } as any)
 
@@ -153,7 +153,7 @@ describe('auth-helpers', () => {
         id: 'admin-123',
         email: 'admin@example.com',
         name: 'Admin User',
-        role: 'ADMIN',
+        role: 'PRESIDENT',
         isPro: false,
       })
     })
@@ -180,16 +180,17 @@ describe('auth-helpers', () => {
       mockedAuth.mockResolvedValueOnce({
         user: {
           email: 'admin@example.com',
-          role: 'ADMIN' as Role,
+          role: 'PRESIDENT' as Role,
         },
       } as any)
 
       await expect(requireAdmin()).rejects.toThrow('Unauthorized')
     })
 
-    it('should reject non-ADMIN roles', async () => {
-      const nonAdminRoles: Role[] = ['STUDENT']
-      
+    it('should reject non-manager roles', async () => {
+      // requireAdmin now means Manager or President; Student and Trainer are rejected.
+      const nonAdminRoles: Role[] = ['STUDENT', 'TRAINER']
+
       for (const role of nonAdminRoles) {
         mockedAuth.mockResolvedValueOnce({
           user: {

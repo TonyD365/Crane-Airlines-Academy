@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@/auth'
+import { isStaffRole } from '@/lib/roles'
 
 export async function GET() {
   const session = await auth()
@@ -7,7 +8,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const role = session.user.role === 'ADMIN' ? 'ADMIN' : 'USER'
+  const role = isStaffRole(session.user.role) ? 'ADMIN' : 'USER'
 
   return NextResponse.json({
     id: session.user.id,

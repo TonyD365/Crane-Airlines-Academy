@@ -12,6 +12,7 @@ import { auth } from '@/auth'
 import { prisma } from '@/lib/prisma'
 import { CourseHeroTitle } from '@/components/courses/course-hero-title'
 import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
+import { isStaffRole } from '@/lib/roles'
 import { studentGlassCard, studentGlassPill } from '@/lib/student-glass-styles'
 import { cn } from '@/lib/utils'
 import { ArchiveCourseButton, UnarchiveCourseButton } from '@/components/profile/archive-actions'
@@ -95,7 +96,7 @@ export default async function CoursePage({ params }: { params: Promise<{ slug: s
 
   // Enforce group-based visibility: students only see courses published to a
   // group they belong to (empty publish list = visible to everyone). Admins are exempt.
-  if (session?.user?.role !== 'ADMIN') {
+  if (!isStaffRole(session?.user?.role)) {
     const userGroupId = await getUserGroupId(session?.user?.id)
     if (!courseVisibleToGroup((course as { publishGroupIds?: unknown }).publishGroupIds, userGroupId)) {
       notFound()

@@ -7,6 +7,7 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { recalculateCourseProgress } from './course-progress'
 import { requirePayloadDocument } from '@/lib/payload-validate'
+import { isStaffRole } from '@/lib/roles'
 
 /**
  * Mark a lesson as complete (for lessons without tasks).
@@ -60,7 +61,7 @@ export async function markLessonComplete(lessonId: string, courseSlug: string) {
 export async function checkLessonCompletion(userId: string, lessonId: string, userRole?: string) {
   const payload = await getPayload({ config })
 
-  const tasksWhere: any = userRole === 'ADMIN'
+  const tasksWhere: any = isStaffRole(userRole)
     ? { lesson: { equals: lessonId } }
     : { lesson: { equals: lessonId }, isPublished: { equals: true } }
 

@@ -1,8 +1,16 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/auth'
+import { isManagerRole } from '@/lib/roles'
 import { GroupsAdmin } from '@/components/admin/groups-admin'
 
 export const dynamic = 'force-dynamic'
 
-export default function AdminGroupsPage() {
+export default async function AdminGroupsPage() {
+  const session = await auth()
+  // Trainers cannot manage groups.
+  if (!isManagerRole(session?.user?.role)) {
+    redirect('/admin/completion')
+  }
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>

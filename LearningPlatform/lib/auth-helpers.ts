@@ -1,5 +1,6 @@
 import { auth } from '@/auth'
 import type { Role } from '@prisma/client'
+import { isStaffRole, isManagerRole, isPresidentRole } from '@/lib/roles'
 
 export type SessionUser = {
   id: string
@@ -32,9 +33,34 @@ export async function requireProUser(): Promise<SessionUser> {
   return user
 }
 
-export async function requireAdmin(): Promise<SessionUser> {
+/** Any staff member (Trainer, Manager, or President) — can reach the admin panel. */
+export async function requireStaff(): Promise<SessionUser> {
   const user = await requireAuth()
-  if (user.role !== 'ADMIN') {
+  if (!isStaffRole(user.role)) {
+    throw new Error('Forbidden')
+  }
+  return user
+}
+
+/**
+ * Manager or President — can manage content and users.
+ * `requireAdmin` is kept as an alias so existing management endpoints keep
+ * their previous (now Manager+) gate without a wide rename.
+ */
+export async function requireManager(): Promise<SessionUser> {
+  const user = await requireAuth()
+  if (!isManagerRole(user.role)) {
+    throw new Error('Forbidden')
+  }
+  return user
+}
+
+export const requireAdmin = requireManager
+
+/** President only — the top tier that can assign roles. */
+export async function requirePresident(): Promise<SessionUser> {
+  const user = await requireAuth()
+  if (!isPresidentRole(user.role)) {
     throw new Error('Forbidden')
   }
   return user

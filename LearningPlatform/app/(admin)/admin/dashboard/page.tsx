@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation'
+import { auth } from '@/auth'
+import { isManagerRole } from '@/lib/roles'
 import { getCourses } from '../actions'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ReloadButton } from '@/components/ui/reload-button'
@@ -23,6 +26,12 @@ type Course = {
 }
 
 export default async function AdminDashboardPage() {
+  // Trainers can't manage content — send them to the completion view.
+  const session = await auth()
+  if (!isManagerRole(session?.user?.role)) {
+    redirect('/admin/completion')
+  }
+
   const isBuildTime = process.env.NEXT_PHASE === 'phase-production-build'
 
   let courses: Course[] = []

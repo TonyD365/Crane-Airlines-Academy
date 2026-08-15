@@ -18,6 +18,7 @@
 
 import { getPayload } from 'payload'
 import config from '@payload-config'
+import { isStaffRole } from '@/lib/roles'
 
 export type PayloadCollection = 'lessons' | 'tasks' | 'courses' | 'modules'
 
@@ -47,7 +48,7 @@ export async function requirePayloadDocument(
     throw new Error(`${pretty} not found`)
   }
 
-  if (!doc.isPublished && role !== 'ADMIN') {
+  if (!doc.isPublished && !isStaffRole(role)) {
     const singular = collection.replace(/s$/, '')
     const pretty = singular.charAt(0).toUpperCase() + singular.slice(1)
     throw new Error(`${pretty} not found`)

@@ -14,6 +14,7 @@ import {
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { adminGlassCard, adminGlassOutlineButton, studentGlassPill } from '@/lib/student-glass-styles'
+import { ASSIGNABLE_ROLES, ROLE_LABEL, isPresidentRole, isStaffRole } from '@/lib/roles'
 
 type UserRow = {
   id: string
@@ -33,9 +34,13 @@ const PAGE_SIZE = 20
 
 interface UsersAdminTableProps {
   currentUserId: string | null
+  currentUserRole: string | null
 }
 
-export function UsersAdminTable({ currentUserId }: UsersAdminTableProps) {
+export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTableProps) {
+  const isPresident = isPresidentRole(currentUserRole)
+  // Managers may only create students; a President can create any role.
+  const creatableRoles = isPresident ? ASSIGNABLE_ROLES : (['STUDENT'] as const)
   const [page, setPage] = useState(1)
   const [users, setUsers] = useState<UserRow[]>([])
   const [total, setTotal] = useState(0)
@@ -74,7 +79,6 @@ export function UsersAdminTable({ currentUserId }: UsersAdminTableProps) {
       }
       setUsers(data.users ?? [])
       setTotal(data.total ?? 0)
-      if (data.page && data.page !== p) setPage(data.page)
     } catch {
       setError('Network error')
     } finally {
@@ -255,8 +259,11 @@ export function UsersAdminTable({ currentUserId }: UsersAdminTableProps) {
               onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))}
               className={selectClass}
             >
-              <option value="STUDENT">Student</option>
-              <option value="ADMIN">Admin</option>
+              {creatableRoles.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABEL[r]}
+                </option>
+              ))}
             </select>
           </div>
           <div className="flex flex-col gap-1">
@@ -323,14 +330,35 @@ export function UsersAdminTable({ currentUserId }: UsersAdminTableProps) {
                     {u.name ?? '—'}
                   </TableCell>
                   <TableCell>
-                    <span
-                      className={cn(
-                        studentGlassPill,
-                        u.role === 'ADMIN' ? 'text-primary' : 'opacity-90',
-                      )}
-                    >
-                      {u.role}
-                    </span>
+                    {isPresident ? (
+                      <select
+                        className={selectClass}
+                        value={u.role}
+                        disabled={
+                          pendingKey === `${u.id}:role` ||
+                          (u.id === currentUserId) // a President can't change their own role
+                        }
+                        title={
+                          u.id === currentUserId ? 'You cannot change your own role' : undefined
+                        }
+                        onChange={(e) => patchUser(u.id, 'role', { role: e.target.value })}
+                      >
+                        {ASSIGNABLE_ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {ROLE_LABEL[r]}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span
+                        className={cn(
+                          studentGlassPill,
+                          isStaffRole(u.role) ? 'text-primary' : 'opacity-90',
+                        )}
+                      >
+                        {ROLE_LABEL[u.role] ?? u.role}
+                      </span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <select
@@ -370,28 +398,6 @@ export function UsersAdminTable({ currentUserId }: UsersAdminTableProps) {
                         onClick={() => patchUser(u.id, 'pro', { isPro: !u.isPro })}
                       >
                         {u.isPro ? 'Revoke Pro' : 'Grant Pro'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(adminGlassOutlineButton)}
-                        disabled={
-                          pendingKey === `${u.id}:role` ||
-                          (u.role === 'ADMIN' && u.id === currentUserId)
-                        }
-                        title={
-                          u.role === 'ADMIN' && u.id === currentUserId
-                            ? 'You cannot remove your own admin role'
-                            : undefined
-                        }
-                        onClick={() =>
-                          patchUser(u.id, 'role', {
-                            role: u.role === 'ADMIN' ? 'STUDENT' : 'ADMIN',
-                          })
-                        }
-                      >
-                        {u.role === 'ADMIN' ? 'Revoke admin' : 'Grant admin'}
                       </Button>
                     </div>
                   </TableCell>

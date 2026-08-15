@@ -18,6 +18,7 @@ import {
 } from '@/components/dashboard/course-carousel'
 import { fetchPublishedCoursesByIdsInOrder } from '@/lib/started-courses'
 import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
+import { isStaffRole } from '@/lib/roles'
 import { AllCoursesPromo } from '@/components/dashboard/all-courses-promo'
 import { CreativeSpaceDashboardPromo } from '@/components/dashboard/creative-space-dashboard-promo'
 import { studentGlassCard } from '@/lib/student-glass-styles'
@@ -69,7 +70,7 @@ export default async function DashboardPage() {
       popularCourses = popularTimed.result as CourseSummary[]
 
       // Hide courses the student's group is not allowed to see (admins exempt).
-      if (session.user.role !== 'ADMIN') {
+      if (!isStaffRole(session.user.role)) {
         const groupId = await getUserGroupId(session.user.id)
         const visible = (c: CourseSummary) =>
           courseVisibleToGroup((c as { publishGroupIds?: unknown }).publishGroupIds, groupId)

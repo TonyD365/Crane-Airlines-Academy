@@ -2,76 +2,98 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, GraduationCap, Image, Settings, LayoutDashboard, ChevronLeft, ChevronRight, ClipboardList, Tag, ScrollText, Users, UsersRound, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, GraduationCap, Image, Settings, LayoutDashboard, ChevronLeft, ChevronRight, ClipboardList, Tag, ScrollText, Users, UsersRound, Sparkles, ClipboardCheck } from 'lucide-react'
 import { adminGlassSidebar } from '@/lib/student-glass-styles'
 import { cn } from '@/lib/utils'
+import { isManagerRole } from '@/lib/roles'
 import { useEffect, useState } from 'react'
 
+/** `minRole`: 'staff' = any staff (Trainer+); 'manager' = Manager or President. */
 const navItems = [
   {
     title: 'Dashboard',
     href: '/admin/dashboard',
     icon: LayoutDashboard,
+    minRole: 'manager' as const,
+  },
+  {
+    title: 'Completion',
+    href: '/admin/completion',
+    icon: ClipboardCheck,
+    minRole: 'staff' as const,
   },
   {
     title: 'Lessons',
     href: '/admin/lessons',
     icon: GraduationCap,
+    minRole: 'manager' as const,
   },
   {
     title: 'Subjects',
     href: '/admin/subjects',
     icon: BookOpen,
+    minRole: 'manager' as const,
   },
   {
     title: 'Tags',
     href: '/admin/tags',
     icon: Tag,
+    minRole: 'manager' as const,
   },
   {
     title: 'Tasks',
     href: '/admin/tasks',
     icon: ClipboardList,
+    minRole: 'manager' as const,
   },
   {
     title: 'Flashcards',
     href: '/admin/flashcards',
     icon: BrainCircuit,
+    minRole: 'manager' as const,
   },
   {
     title: 'Media',
     href: '/admin/media',
     icon: Image,
+    minRole: 'manager' as const,
   },
   {
     title: 'AI Agent',
     href: '/admin/ai-agent',
     icon: Sparkles,
+    minRole: 'manager' as const,
   },
   {
     title: 'Logs',
     href: '/admin/logs',
     icon: ScrollText,
+    minRole: 'manager' as const,
   },
   {
     title: 'Users',
     href: '/admin/users',
     icon: Users,
+    minRole: 'manager' as const,
   },
   {
     title: 'Groups',
     href: '/admin/groups',
     icon: UsersRound,
+    minRole: 'manager' as const,
   },
   {
     title: 'Settings',
     href: '/admin/settings',
     icon: Settings,
+    minRole: 'manager' as const,
   },
 ]
 
-export function AdminSidebar() {
+export function AdminSidebar({ role }: { role?: string | null }) {
   const pathname = usePathname()
+  const canManage = isManagerRole(role)
+  const visibleItems = navItems.filter((item) => item.minRole === 'staff' || canManage)
   const [collapsed, setCollapsed] = useState<boolean>(false)
 
   useEffect(() => {
@@ -116,7 +138,7 @@ export function AdminSidebar() {
       </div>
       
       <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain p-2">
-        {navItems.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           const Icon = item.icon
           

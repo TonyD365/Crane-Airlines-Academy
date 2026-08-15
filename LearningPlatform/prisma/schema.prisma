@@ -485,7 +485,12 @@ model PlatformFlags {
 
 enum Role {
   STUDENT
-  ADMIN
+  /// Read-only staff: can view course completion for students in their own group.
+  TRAINER
+  /// Staff: can manage content and users (create accounts, groups, Pro) but not roles.
+  MANAGER
+  /// Top admin: full access to everything, including assigning roles.
+  PRESIDENT
 }
 
 enum LessonStatus {

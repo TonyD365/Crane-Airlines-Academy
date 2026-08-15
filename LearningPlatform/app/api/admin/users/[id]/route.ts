@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { requireAdmin } from '@/lib/auth-helpers'
+import { requireManager } from '@/lib/auth-helpers'
+import { isPresidentRole } from '@/lib/roles'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
 
 const patchSchema = z
@@ -18,7 +19,8 @@ const patchSchema = z
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const admin = await requireAdmin()
+    // Manager or President may edit users; role changes are gated below to President only.
+    const admin = await requireManager()
     const { id } = await params
 
     let json: unknown
@@ -38,8 +40,17 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    if (parsed.data.role === Role.STUDENT && id === admin.id) {
-      return NextResponse.json({ error: 'You cannot remove your own admin role' }, { status: 403 })
+    // Only the President may change roles (admin levels).
+    if (parsed.data.role !== undefined && !isPresidentRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Only a President can change a user’s role' },
+        { status: 403 },
+      )
+    }
+
+    // Prevent a President from demoting themselves and losing top access.
+    if (parsed.data.role !== undefined && id === admin.id && parsed.data.role !== Role.PRESIDENT) {
+      return NextResponse.json({ error: 'You cannot lower your own role' }, { status: 403 })
     }
 
     if (parsed.data.groupId) {

@@ -137,7 +137,7 @@ async function seed() {
            name = COALESCE(EXCLUDED.name, public."User".name),
            "updatedAt" = NOW()
          RETURNING id, email, username, role`,
-        ['admin-001', adminEmail, adminUsername, 'Admin User', passwordHash, 'ADMIN']
+        ['admin-001', adminEmail, adminUsername, 'Admin User', passwordHash, 'PRESIDENT']
       )
       if (authResult.rows.length > 0) {
         logger.success('Admin user for NextAuth ready (created or password synced from SEED_ADMIN_PASSWORD)')

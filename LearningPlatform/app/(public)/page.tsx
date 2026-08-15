@@ -1,5 +1,6 @@
 import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
+import { isManagerRole, isStaffRole } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic'
 import DarkBackground from '@/components/DarkBackground';
@@ -19,8 +20,11 @@ export default async function HomePage() {
       redirect('/login');
     }
     
-    if (userRole === 'ADMIN') {
+    if (isManagerRole(userRole)) {
       redirect('/admin/dashboard');
+    } else if (isStaffRole(userRole)) {
+      // Trainers only have the completion view.
+      redirect('/admin/completion');
     } else {
       redirect('/courses');
     }

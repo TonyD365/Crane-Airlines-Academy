@@ -7,6 +7,7 @@ import ThemeToggle from '@/components/theme-toggle';
 import { NavbarBrand } from '@/components/navbar-brand';
 import { studentGlassNav } from '@/lib/student-glass-styles';
 import { cn } from '@/lib/utils';
+import { isStaffRole } from '@/lib/roles';
 
 export async function Navbar() {
   const session = await auth();
@@ -44,9 +45,9 @@ export async function Navbar() {
                   <Settings className="size-6" />
                 </Link>
               </Button>
-              {session.user?.role === 'ADMIN' && (
+              {isStaffRole(session.user?.role) && (
                 <Button asChild variant="hero" size="default" className="auth-hero-cta text-base">
-                  <Link href="/admin/dashboard">Admin dashboard</Link>
+                  <Link href="/admin/dashboard">Admin panel</Link>
                 </Button>
               )}
               <form

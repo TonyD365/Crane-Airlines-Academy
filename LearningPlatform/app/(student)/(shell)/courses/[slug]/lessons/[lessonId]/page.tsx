@@ -10,6 +10,7 @@ import { TheoryBlocksRenderer } from '@/components/student/theory-blocks-rendere
 import { LessonLegacyContent } from '@/components/student/lesson-legacy-content'
 import { TaskCard } from '@/components/student/task-card'
 import { auth } from '@/auth'
+import { isStaffRole } from '@/lib/roles'
 import { updateLesson } from '@/app/(admin)/admin/actions'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
@@ -58,7 +59,7 @@ export default async function LessonPage({
     ? await lessonWithPopulatedTheoryImages(lessonRaw, payload)
     : null
 
-  const isAdmin = session?.user?.role === 'ADMIN'
+  const isAdmin = isStaffRole(session?.user?.role)
   const canUseLessonAssistant = session?.user?.isPro === true
 
   if (!lesson) notFound()

@@ -408,7 +408,10 @@ export const createMockPayload = (overrides = {}) => {
 /**
  * Mock NextAuth session
  */
-export const createMockSession = (role: 'STUDENT' | 'ADMIN' = 'STUDENT', overrides = {}) => {
+export const createMockSession = (
+  role: 'STUDENT' | 'TRAINER' | 'MANAGER' | 'PRESIDENT' = 'STUDENT',
+  overrides = {},
+) => {
   return {
     user: {
       id: 'mock-user-id',

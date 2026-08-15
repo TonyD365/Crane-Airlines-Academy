@@ -40,7 +40,7 @@ const mockedAuth = vi.mocked(auth)
 // Helper to mock an admin session
 const mockAdminAuth = () =>
   mockedAuth.mockResolvedValue({
-    user: { id: 'admin-1', email: 'admin@test.com', name: 'Admin', role: 'ADMIN' },
+    user: { id: 'admin-1', email: 'admin@test.com', name: 'Admin', role: 'PRESIDENT' },
   } as any)
 
 describe('API: /api/health', () => {

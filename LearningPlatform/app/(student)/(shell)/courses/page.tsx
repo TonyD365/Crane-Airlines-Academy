@@ -19,6 +19,7 @@ import { studentGlassCard, studentGlassFooterNavButton } from '@/lib/student-gla
 import { cn } from '@/lib/utils'
 import { auth } from '@/auth'
 import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
+import { isStaffRole } from '@/lib/roles'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +32,7 @@ export default async function CoursesPage({ searchParams }: PageProps) {
   const filters = parseCatalogSearchParams(raw)
   const payload = await getPayload({ config })
   const session = await auth()
-  const isAdmin = session?.user?.role === 'ADMIN'
+  const isAdmin = isStaffRole(session?.user?.role)
   const userGroupId = isAdmin ? null : await getUserGroupId(session?.user?.id)
 
   const [{ docs: subjectDocs }, coursesResult] = await Promise.all([

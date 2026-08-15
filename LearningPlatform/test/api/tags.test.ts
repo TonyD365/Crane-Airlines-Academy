@@ -43,7 +43,7 @@ const mockedTaskCounts = vi.mocked(getTaskCountsByPrismaTagId)
 
 function adminSession() {
   mockedAuth.mockResolvedValue({
-    user: { id: 'admin-1', email: 'admin@test.com', role: 'ADMIN', name: 'Admin' },
+    user: { id: 'admin-1', email: 'admin@test.com', role: 'PRESIDENT', name: 'Admin' },
   } as any)
 }
 
