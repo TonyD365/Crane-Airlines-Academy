@@ -13,6 +13,9 @@ export const PUBLIC_PATHS = [
   // /login; it stays public only so that redirect can run without an auth bounce.
   '/register',
   '/admin/login',
+  // Legal pages — must be publicly reachable (e.g. for the Roblox OAuth app listing).
+  '/privacy',
+  '/terms',
   '/api/ping',
   '/api/healthz',
 ] as const

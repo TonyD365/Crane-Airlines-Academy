@@ -72,6 +72,16 @@ function LoginForm() {
           <p className={cn('text-center text-sm', glass)}>
             Accounts are created by an administrator. Contact your admin for access.
           </p>
+
+          <p className={cn('text-center text-xs', glass)}>
+            <Link href="/privacy" className="underline underline-offset-2 hover:opacity-80">
+              Privacy Policy
+            </Link>
+            <span className="mx-2 opacity-60">·</span>
+            <Link href="/terms" className="underline underline-offset-2 hover:opacity-80">
+              Terms of Service
+            </Link>
+          </p>
         </CardContent>
       </Card>
     </div>
