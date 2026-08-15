@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { uploadBufferToS3 } from '@/lib/s3'
+import { randomBytes } from 'crypto'
+import { uploadBufferToS3, isS3Configured } from '@/lib/s3'
 import { requireAuth } from '@/lib/auth-helpers'
 
 function hasValidImageMagicBytes(buf: Buffer): boolean {
@@ -62,34 +63,36 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const publicDir = path.join(process.cwd(), 'public', 'media')
-    if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
-
-    const s3BucketConfigured = Boolean(
-      process.env.S3_BUCKET ||
-        process.env.AWS_S3_BUCKET ||
-        process.env.AWS_S3_BUCKET_NAME ||
-        process.env.RAILWAY_BUCKET_NAME,
-    )
+    const ext = path.extname(safeName)
+    const base = path.basename(safeName, ext) || 'upload'
 
     let finalName = safeName
     let remoteKey: string | null = null
-    const ext = path.extname(safeName)
-    const base = path.basename(safeName, ext)
-    let attempt = 0
-    while (fs.existsSync(path.join(publicDir, finalName))) {
-      attempt += 1
-      finalName = `${base}-${attempt}${ext}`
-    }
 
-    const localPath = path.join(publicDir, finalName)
-    fs.writeFileSync(localPath, buffer)
-
-    if (s3BucketConfigured) {
+    if (isS3Configured()) {
+      // Production: object storage only (serverless filesystem is read-only).
+      finalName = `${base}-${randomBytes(4).toString('hex')}${ext}`
+      remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
+      if (!remoteKey) {
+        return NextResponse.json({ error: 'Failed to store file' }, { status: 500 })
+      }
+    } else {
+      // Local/dev only: write to public/media (requires a writable filesystem).
+      const publicDir = path.join(process.cwd(), 'public', 'media')
       try {
-        remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
-      } catch {
-        remoteKey = null
+        if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
+        let attempt = 0
+        while (fs.existsSync(path.join(publicDir, finalName))) {
+          attempt += 1
+          finalName = `${base}-${attempt}${ext}`
+        }
+        fs.writeFileSync(path.join(publicDir, finalName), buffer)
+      } catch (err) {
+        console.error('[POST /api/creative-media/upload] local write failed, no S3:', err)
+        return NextResponse.json(
+          { error: 'File storage is not configured. Configure S3 storage to upload media.' },
+          { status: 500 },
+        )
       }
     }
 
@@ -109,14 +112,6 @@ export async function POST(request: NextRequest) {
       },
       overrideAccess: true,
     })
-
-    if (remoteKey) {
-      try {
-        if (fs.existsSync(localPath)) fs.unlinkSync(localPath)
-      } catch {
-        // best-effort cleanup
-      }
-    }
 
     return NextResponse.json({ success: true, url: publicUrl, id: media.id, filename: finalName })
   } catch (error) {

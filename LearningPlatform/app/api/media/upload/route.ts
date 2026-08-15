@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import fs from 'fs'
 import path from 'path'
-import { uploadBufferToS3 } from '@/lib/s3'
+import { randomBytes } from 'crypto'
+import { uploadBufferToS3, isS3Configured } from '@/lib/s3'
 import { requireAdmin } from '@/lib/auth-helpers'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
 
@@ -72,43 +73,42 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File content does not match a supported image format' }, { status: 400 })
     }
 
-    // Ensure public/media directory always exists.
-    // Payload CMS's upload collection writes to this dir even when we store in S3.
-    // The directory may not exist in ephemeral Railway containers.
-    const publicDir = path.join(process.cwd(), 'public', 'media')
-    if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
-
-    // If S3 is configured (best option for production), upload directly and avoid
-    // relying on the container filesystem. Otherwise, write to `public/media`
-    // so Next can serve the file immediately in local/dev.
-    const s3BucketConfigured = Boolean(process.env.S3_BUCKET || process.env.AWS_S3_BUCKET || process.env.AWS_S3_BUCKET_NAME || process.env.RAILWAY_BUCKET_NAME)
+    const ext = path.extname(safeName)
+    const base = path.basename(safeName, ext) || 'upload'
 
     let finalName = safeName
     let remoteKey: string | null = null
 
-    // Determine unique filename (check local disk for collision detection)
-    const ext = path.extname(safeName)
-    const base = path.basename(safeName, ext)
-    let attempt = 0
-    while (fs.existsSync(path.join(publicDir, finalName))) {
-      attempt += 1
-      finalName = `${base}-${attempt}${ext}`
-    }
-
-    // Always write the file to local disk FIRST.
-    // Payload CMS reads from staticDir ('public/media') during payload.create() to
-    // extract image metadata (dimensions etc.). Without the file on disk, it throws
-    // ENOENT even when the bucket upload succeeded.
-    const localPath = path.join(publicDir, finalName)
-    fs.writeFileSync(localPath, buffer)
-
-    // Upload to S3 if configured (Railway / AWS)
-    if (s3BucketConfigured) {
+    if (isS3Configured()) {
+      // Production (Vercel/Railway): store in object storage only. The serverless
+      // filesystem is read-only, so we never touch public/media here. A random
+      // suffix guarantees a unique key without a disk or bucket existence check.
+      finalName = `${base}-${randomBytes(4).toString('hex')}${ext}`
+      remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
+      if (!remoteKey) {
+        return NextResponse.json({ error: 'Failed to store file' }, { status: 500 })
+      }
+    } else {
+      // Local/dev only: no object storage configured — write to public/media so
+      // Next can serve it. Requires a writable filesystem (not available on Vercel).
+      const publicDir = path.join(process.cwd(), 'public', 'media')
       try {
-        remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
+        if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
+        let attempt = 0
+        while (fs.existsSync(path.join(publicDir, finalName))) {
+          attempt += 1
+          finalName = `${base}-${attempt}${ext}`
+        }
+        fs.writeFileSync(path.join(publicDir, finalName), buffer)
       } catch (err) {
-        console.warn('S3 upload failed (keeping local file as fallback):', err)
-        remoteKey = null
+        console.error('[ERROR] Local media write failed and no S3 is configured:', err)
+        return NextResponse.json(
+          {
+            error:
+              'File storage is not configured. On serverless hosting (e.g. Vercel) the filesystem is read-only — configure S3 storage (S3_BUCKET, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) to upload media.',
+          },
+          { status: 500 },
+        )
       }
     }
 
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    console.log(`[SUCCESS] Upload successful: ${finalName} (${buffer.length} bytes) -> ${remoteKey ? 'S3+' : 'local'} ${publicUrl}`)
+    console.log(`[SUCCESS] Upload successful: ${finalName} (${buffer.length} bytes) -> ${remoteKey ? 'S3' : 'local'} ${publicUrl}`)
 
     logActivity({
       action:       ActivityAction.MEDIA_UPLOADED,
@@ -144,17 +144,7 @@ export async function POST(request: NextRequest) {
       metadata:     { filename: finalName, mimeType: file.type, filesize: buffer.length, url: publicUrl },
     })
 
-    // If we uploaded to S3 successfully, delete the local temp copy to save disk space.
-    // On Railway (ephemeral filesystem) this prevents wasting container storage.
-    if (remoteKey) {
-      try {
-        if (fs.existsSync(localPath)) fs.unlinkSync(localPath)
-      } catch (err) {
-        console.warn('Failed to cleanup local temp file after S3 upload:', err)
-      }
-    }
-
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true, 
       url: publicUrl, 
       id: media.id, 
