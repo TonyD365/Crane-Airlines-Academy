@@ -14,7 +14,7 @@ import { isStaffRole } from '@/lib/roles'
 import { updateLesson } from '@/app/(admin)/admin/actions'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
-import { markLessonComplete } from '@/app/actions/progress'
+import { AutoCompleteLesson } from '@/components/student/auto-complete-lesson'
 import { lessonWithPopulatedTheoryImages } from '@/lib/populate-lesson-theory-images'
 import { LessonAssistantShell, THEORY_ROOT_ID } from '@/components/student/lesson-assistant-fab'
 import { studentGlassCard, studentGlassPill } from '@/lib/student-glass-styles'
@@ -42,11 +42,6 @@ export default async function LessonPage({
     }
     await updateLesson(targetLessonId, { isPublished: nextState === 'true' })
     revalidatePath(`/courses/${targetSlug}/lessons/${targetLessonId}`)
-  }
-
-  async function markCompleteAction() {
-    'use server'
-    await markLessonComplete(lessonId, slug)
   }
 
   // ─── Batch 1: auth + lesson in parallel ─────────────────────────────────────
@@ -270,14 +265,12 @@ export default async function LessonPage({
               <p className="text-center text-base text-gray-600 dark:text-gray-400 md:text-lg">
                 No tasks for this lesson
               </p>
-              {!isAdmin && hasNoTasks && !isLessonCompleted && (
-                <div className="mt-6 flex justify-center">
-                  <form action={markCompleteAction}>
-                    <Button type="submit" variant="hero" className="auth-hero-cta">
-                      Mark lesson as complete
-                    </Button>
-                  </form>
-                </div>
+              {!isAdmin && hasNoTasks && (
+                <AutoCompleteLesson
+                  lessonId={lessonId}
+                  courseSlug={slug}
+                  initialCompleted={isLessonCompleted}
+                />
               )}
             </CardContent>
           </Card>
