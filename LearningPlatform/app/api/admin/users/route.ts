@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import bcrypt from 'bcryptjs'
 import { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, requireManager } from '@/lib/auth-helpers'
@@ -24,7 +23,7 @@ export async function GET(req: Request) {
         take: limit,
         select: {
           id: true,
-          email: true,
+          rbxUserId: true,
           username: true,
           name: true,
           role: true,
@@ -56,12 +55,19 @@ export async function GET(req: Request) {
 }
 
 /**
- * Create a new account. Admin-only — this replaces public self-service
- * registration. Users sign in with their RBX username; a synthetic email is
- * stored to satisfy the unique/non-null email column and keep the rest of the
- * app (which reads `user.email`) working.
+ * Create a new account. Admin-only — public self-service registration is
+ * disabled. Users sign in with Roblox (RBX) OAuth; the account is matched by
+ * the Roblox numeric user id, so the admin must supply the person's RBX UserID
+ * and username when creating the account.
  */
 const createUserSchema = z.object({
+  // Roblox numeric user id (the OAuth "sub"). Digits only.
+  rbxUserId: z
+    .string()
+    .trim()
+    .min(1, 'RBX UserID is required')
+    .max(32)
+    .regex(/^[0-9]+$/, 'RBX UserID must be a number'),
   // RBX usernames: letters, digits, and underscores are the common set.
   username: z
     .string()
@@ -69,20 +75,10 @@ const createUserSchema = z.object({
     .min(3, 'Username must be at least 3 characters')
     .max(32)
     .regex(/^[A-Za-z0-9_]+$/, 'Username may only contain letters, numbers, and underscores'),
-  password: z.string().min(8, 'Password must be at least 8 characters').max(128),
   name: z.string().trim().max(100).optional(),
   role: z.nativeEnum(Role).optional(),
   groupId: z.string().min(1).nullable().optional(),
 })
-
-function isStrongPassword(password: string): boolean {
-  return (
-    /[A-Z]/.test(password) &&
-    /[a-z]/.test(password) &&
-    /[0-9]/.test(password) &&
-    /[^A-Za-z0-9]/.test(password)
-  )
-}
 
 export async function POST(req: Request) {
   try {
@@ -101,7 +97,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: first }, { status: 400 })
     }
 
-    const { password, name, role, groupId } = parsed.data
+    const { name, role, groupId } = parsed.data
 
     // Only a President may create staff accounts; Managers can create students only.
     const requestedRole = role ?? Role.STUDENT
@@ -112,22 +108,16 @@ export async function POST(req: Request) {
       )
     }
 
-    if (!isStrongPassword(password)) {
-      return NextResponse.json(
-        { error: 'Password must include uppercase, lowercase, a number, and a special character' },
-        { status: 400 },
-      )
-    }
-
-    const username = parsed.data.username.toLowerCase()
-    const email = `${username}@rbx.local`
+    const rbxUserId = parsed.data.rbxUserId
+    const username = parsed.data.username
 
     const existing = await prisma.user.findFirst({
-      where: { OR: [{ username }, { email }] },
-      select: { id: true },
+      where: { OR: [{ rbxUserId }, { username }] },
+      select: { rbxUserId: true, username: true },
     })
     if (existing) {
-      return NextResponse.json({ error: 'That username is already taken' }, { status: 409 })
+      const clash = existing.rbxUserId === rbxUserId ? 'RBX UserID' : 'username'
+      return NextResponse.json({ error: `That ${clash} is already registered` }, { status: 409 })
     }
 
     if (groupId) {
@@ -137,20 +127,17 @@ export async function POST(req: Request) {
       }
     }
 
-    const passwordHash = await bcrypt.hash(password, 10)
-
     const user = await prisma.user.create({
       data: {
+        rbxUserId,
         username,
-        email,
-        passwordHash,
         name: name?.trim() || null,
-        role: role ?? Role.STUDENT,
+        role: requestedRole,
         groupId: groupId ?? null,
       },
       select: {
         id: true,
-        email: true,
+        rbxUserId: true,
         username: true,
         name: true,
         role: true,

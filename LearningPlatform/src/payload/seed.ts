@@ -3,7 +3,6 @@ import { getPayload } from 'payload'
 import config from './payload.config.js'
 import pg from 'pg'
 import { logger } from '@/lib/logger'
-import bcrypt from 'bcryptjs'
 import { sanitizeDatabaseUrl } from '@/lib/db-utils'
 
 const { Pool } = pg
@@ -13,12 +12,15 @@ async function seed() {
 
   // Require a seed password from environment — never hard-code credentials
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com'
-  // Accounts sign in with an RBX username; derive a default from the email local part.
+  // App accounts sign in with Roblox OAuth. The admin needs a Roblox numeric
+  // user id to log in; the username is a display label.
   const adminUsername = (
     process.env.SEED_ADMIN_USERNAME || adminEmail.split('@')[0] || 'admin'
   )
     .trim()
     .toLowerCase()
+  const adminRbxUserId = (process.env.SEED_ADMIN_RBX_USER_ID || '').trim()
+  // SEED_ADMIN_PASSWORD is still used for the Payload CMS admin (separate auth).
   const adminPassword = process.env.SEED_ADMIN_PASSWORD
   if (!adminPassword) {
     logger.error(
@@ -122,27 +124,34 @@ async function seed() {
     }
     void adminUser
 
-    // Also create admin user for NextAuth (Prisma User table)
+    // Also create admin user for NextAuth (Prisma User table). Login is via
+    // Roblox OAuth, so the admin is keyed on their Roblox user id.
     logger.info('Creating admin user for NextAuth...')
+    if (!adminRbxUserId) {
+      logger.warning(
+        'SEED_ADMIN_RBX_USER_ID is not set — skipping the app (NextAuth) admin. ' +
+        'Set it to the Roblox numeric user id so the President can sign in with Roblox.',
+      )
+    }
     const authPool = new Pool({ connectionString: databaseUrl, ssl: databaseUrl.includes('sslmode') ? { rejectUnauthorized: false } : false })
     try {
-      const passwordHash = await bcrypt.hash(adminPassword, 12)
-      const authResult = await authPool.query(
-        `INSERT INTO public."User" (id, email, username, name, "passwordHash", role, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-         ON CONFLICT (email) DO UPDATE SET
-           username = COALESCE(public."User".username, EXCLUDED.username),
-           "passwordHash" = EXCLUDED."passwordHash",
-           role = EXCLUDED.role,
-           name = COALESCE(EXCLUDED.name, public."User".name),
-           "updatedAt" = NOW()
-         RETURNING id, email, username, role`,
-        ['admin-001', adminEmail, adminUsername, 'Admin User', passwordHash, 'PRESIDENT']
-      )
-      if (authResult.rows.length > 0) {
-        logger.success('Admin user for NextAuth ready (created or password synced from SEED_ADMIN_PASSWORD)')
-      } else {
-        logger.info('Admin NextAuth upsert returned no row (unexpected)')
+      if (adminRbxUserId) {
+        const authResult = await authPool.query(
+          `INSERT INTO public."User" (id, "rbxUserId", username, name, role, "createdAt", "updatedAt")
+           VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+           ON CONFLICT (username) DO UPDATE SET
+             "rbxUserId" = EXCLUDED."rbxUserId",
+             role = EXCLUDED.role,
+             name = COALESCE(EXCLUDED.name, public."User".name),
+             "updatedAt" = NOW()
+           RETURNING id, "rbxUserId", username, role`,
+          ['admin-001', adminRbxUserId, adminUsername, 'Admin User', 'PRESIDENT']
+        )
+        if (authResult.rows.length > 0) {
+          logger.success('Admin user for NextAuth ready (President, keyed on Roblox user id)')
+        } else {
+          logger.info('Admin NextAuth upsert returned no row (unexpected)')
+        }
       }
     } catch (error) {
       // Log the real error clearly so it's visible in Railway logs

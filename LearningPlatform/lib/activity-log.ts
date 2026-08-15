@@ -47,6 +47,8 @@ export const ActivityAction = {
   ADMIN_USER_ROLE_UPDATED: 'ADMIN_USER_ROLE_UPDATED',
   /** Admin created a user account (metadata: targetUserId, username, role). */
   ADMIN_USER_CREATED: 'ADMIN_USER_CREATED',
+  /** Admin deleted a user account (metadata: targetUserId, username, role). */
+  ADMIN_USER_DELETED: 'ADMIN_USER_DELETED',
   /** Admin changed a user's group (metadata: targetUserId, groupId). */
   ADMIN_USER_GROUP_UPDATED: 'ADMIN_USER_GROUP_UPDATED',
   /** Admin created a student group (metadata: groupId, name). */

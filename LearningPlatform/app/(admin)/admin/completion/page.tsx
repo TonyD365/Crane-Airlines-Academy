@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { isStaffRole } from '@/lib/roles'
 import { cn } from '@/lib/utils'
 import { adminGlassCard } from '@/lib/student-glass-styles'
+import { StudentGroupSelect } from '@/components/admin/student-group-select'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,7 +22,7 @@ type StudentRow = {
   id: string
   username: string | null
   name: string | null
-  groupName: string | null
+  groupId: string | null
   courses: CourseRow[]
 }
 
@@ -30,10 +31,7 @@ function ProgressBar({ percent }: { percent: number }) {
   return (
     <div className="flex items-center gap-2">
       <div className="h-2 w-32 overflow-hidden rounded-full bg-slate-200/70 dark:bg-white/10">
-        <div
-          className="h-full rounded-full bg-primary transition-all"
-          style={{ width: `${clamped}%` }}
-        />
+        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${clamped}%` }} />
       </div>
       <span className="w-10 text-right text-sm tabular-nums text-muted-foreground">{clamped}%</span>
     </div>
@@ -47,34 +45,16 @@ export default async function AdminCompletionPage() {
     redirect('/dashboard')
   }
 
-  // Trainers are limited to their own group; Managers/Presidents see everyone.
-  let groupFilterId: string | null = null
-  let trainerHasNoGroup = false
-  if (role === 'TRAINER') {
-    const me = await prisma.user.findUnique({
-      where: { id: session!.user.id },
-      select: { groupId: true },
-    })
-    groupFilterId = me?.groupId ?? null
-    trainerHasNoGroup = !groupFilterId
-  }
-
-  const students = trainerHasNoGroup
-    ? []
-    : await prisma.user.findMany({
-        where: {
-          role: 'STUDENT',
-          ...(groupFilterId ? { groupId: groupFilterId } : {}),
-        },
-        select: {
-          id: true,
-          username: true,
-          name: true,
-          group: { select: { name: true } },
-        },
-        orderBy: [{ username: 'asc' }],
-        take: 500,
-      })
+  // All staff (Trainer, Manager, President) see every student's completion.
+  const [students, groups] = await Promise.all([
+    prisma.user.findMany({
+      where: { role: 'STUDENT' },
+      select: { id: true, username: true, name: true, groupId: true },
+      orderBy: [{ username: 'asc' }],
+      take: 1000,
+    }),
+    prisma.group.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } }),
+  ])
 
   const studentIds = students.map((s) => s.id)
 
@@ -120,7 +100,7 @@ export default async function AdminCompletionPage() {
     id: s.id,
     username: s.username,
     name: s.name,
-    groupName: s.group?.name ?? null,
+    groupId: s.groupId,
     courses: (progressByUser.get(s.id) ?? []).sort((a, b) => a.title.localeCompare(b.title)),
   }))
 
@@ -131,20 +111,11 @@ export default async function AdminCompletionPage() {
           Course completion
         </h1>
         <p className="mt-2 text-base text-muted-foreground md:text-lg">
-          {role === 'TRAINER'
-            ? 'Course progress for students in your group.'
-            : 'Course progress across all students.'}
+          Course progress across all students. You can also set which group each student belongs to.
         </p>
       </div>
 
-      {role === 'TRAINER' && trainerHasNoGroup ? (
-        <div className={cn('rounded-xl border-0 p-6 shadow-none', adminGlassCard)}>
-          <p className="text-muted-foreground">
-            You are not assigned to a group yet. Ask a manager to add you to a group to see its
-            students here.
-          </p>
-        </div>
-      ) : rows.length === 0 ? (
+      {rows.length === 0 ? (
         <div className={cn('rounded-xl border-0 p-6 shadow-none', adminGlassCard)}>
           <p className="text-muted-foreground">No students found.</p>
         </div>
@@ -152,7 +123,7 @@ export default async function AdminCompletionPage() {
         <div className="space-y-4">
           {rows.map((student) => (
             <div key={student.id} className={cn('rounded-xl border-0 p-4 shadow-none md:p-6', adminGlassCard)}>
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <span className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                     {student.username ?? '—'}
@@ -161,9 +132,14 @@ export default async function AdminCompletionPage() {
                     <span className="ml-2 text-sm text-muted-foreground">({student.name})</span>
                   ) : null}
                 </div>
-                <span className="rounded-full border border-slate-300/50 bg-white/40 px-3 py-1 text-xs font-medium text-muted-foreground dark:border-white/15 dark:bg-white/[0.06]">
-                  {student.groupName ? `Group: ${student.groupName}` : 'No group'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-muted-foreground">Group:</span>
+                  <StudentGroupSelect
+                    userId={student.id}
+                    initialGroupId={student.groupId}
+                    groups={groups}
+                  />
+                </div>
               </div>
 
               {student.courses.length === 0 ? (

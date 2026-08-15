@@ -8,11 +8,11 @@ datasource db {
 
 model User {
   id                String                  @id @default(cuid())
-  email             String                  @unique
-  /// RBX (Roblox) username used to sign in. Accounts are created by admins only.
+  /// RBX (Roblox) numeric user id ("sub" from Roblox OAuth). This is the login identity.
+  rbxUserId         String?                 @unique
+  /// RBX (Roblox) username — display/label. Accounts are created by admins only.
   username          String?                 @unique
   name              String?
-  passwordHash      String?
   role              Role                    @default(STUDENT)
   /// Pro / VIP — unlocks lesson AI assistant and similar features.
   isPro             Boolean                 @default(false)
@@ -35,7 +35,7 @@ model User {
   creativeDrawings                   CreativeDrawing[]
   creativeActivityEvents             CreativeActivityEvent[]
 
-  @@index([email])
+  @@index([rbxUserId])
   @@index([username])
   @@index([groupId])
   @@map("User")

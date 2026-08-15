@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { Role } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { requireManager } from '@/lib/auth-helpers'
-import { isPresidentRole } from '@/lib/roles'
+import { requireStaff, requireManager } from '@/lib/auth-helpers'
+import { isManagerRole, isPresidentRole, isStaffRole } from '@/lib/roles'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
 
 const patchSchema = z
@@ -19,8 +19,8 @@ const patchSchema = z
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    // Manager or President may edit users; role changes are gated below to President only.
-    const admin = await requireManager()
+    // Any staff may edit a student's group; Pro requires Manager+, role requires President.
+    const admin = await requireStaff()
     const { id } = await params
 
     let json: unknown
@@ -38,6 +38,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const exists = await prisma.user.findUnique({ where: { id }, select: { id: true } })
     if (!exists) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Pro access is a Manager+ action.
+    if (parsed.data.isPro !== undefined && !isManagerRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Only a Manager or President can change Pro access' },
+        { status: 403 },
+      )
     }
 
     // Only the President may change roles (admin levels).
@@ -120,6 +128,63 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
     console.error('[PATCH /api/admin/users/[id]]', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * Delete a user. Manager+ action. Managers may not delete other staff
+ * (Manager/President) — that is effectively role management, reserved for the
+ * President. Nobody may delete themselves. Related progress rows cascade.
+ */
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const admin = await requireManager()
+    const { id } = await params
+
+    if (id === admin.id) {
+      return NextResponse.json({ error: 'You cannot delete your own account' }, { status: 403 })
+    }
+
+    const target = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, role: true, username: true },
+    })
+    if (!target) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Managers may only delete students; removing any staff account (Trainer,
+    // Manager, President) is a permission-level action reserved for the President.
+    if (isStaffRole(target.role) && !isPresidentRole(admin.role)) {
+      return NextResponse.json(
+        { error: 'Only a President can delete a staff account' },
+        { status: 403 },
+      )
+    }
+
+    await prisma.user.delete({ where: { id } })
+
+    logActivity({
+      action: ActivityAction.ADMIN_USER_DELETED,
+      actorUserId: admin.id,
+      actorEmail: admin.email,
+      resourceType: 'user',
+      resourceId: id,
+      metadata: { targetUserId: id, username: target.username, role: target.role },
+    })
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.message === 'Unauthorized') {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+      if (error.message === 'Forbidden') {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+    console.error('[DELETE /api/admin/users/[id]]', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -18,7 +18,7 @@ import { ASSIGNABLE_ROLES, ROLE_LABEL, isPresidentRole, isStaffRole } from '@/li
 
 type UserRow = {
   id: string
-  email: string
+  rbxUserId: string | null
   username: string | null
   name: string | null
   role: string
@@ -55,8 +55,8 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
   const [form, setForm] = useState({
+    rbxUserId: '',
     username: '',
-    password: '',
     name: '',
     role: 'STUDENT',
     groupId: '',
@@ -120,8 +120,8 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          rbxUserId: form.rbxUserId.trim(),
           username: form.username.trim(),
-          password: form.password,
           name: form.name.trim() || undefined,
           role: form.role,
           groupId: form.groupId || null,
@@ -132,7 +132,7 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
         setCreateError(data.error ?? 'Failed to create user')
         return
       }
-      setForm({ username: '', password: '', name: '', role: 'STUDENT', groupId: '' })
+      setForm({ rbxUserId: '', username: '', name: '', role: 'STUDENT', groupId: '' })
       setShowCreate(false)
       setPage(1)
       await load(1)
@@ -191,6 +191,28 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
     }
   }
 
+  const deleteUser = async (u: UserRow) => {
+    if (!confirm(`Delete account "${u.username ?? u.id}"? This removes their progress and cannot be undone.`)) {
+      return
+    }
+    setPendingKey(`${u.id}:delete`)
+    setError(null)
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}`, { method: 'DELETE' })
+      const data = (await res.json().catch(() => ({}))) as { error?: string }
+      if (!res.ok) {
+        setError(data.error ?? 'Failed to delete user')
+        return
+      }
+      setUsers((prev) => prev.filter((row) => row.id !== u.id))
+      setTotal((t) => Math.max(0, t - 1))
+    } catch {
+      setError('Network error')
+    } finally {
+      setPendingKey(null)
+    }
+  }
+
   const fieldClass = 'h-9 border border-input bg-background text-sm text-foreground dark:bg-background'
   const selectClass = 'h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground'
 
@@ -224,22 +246,22 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
           className={cn('grid gap-3 rounded-xl border-0 p-4 shadow-none md:grid-cols-2 lg:grid-cols-3', adminGlassCard)}
         >
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">RBX Username</label>
+            <label className="text-sm font-medium text-foreground">RBX UserID</label>
             <Input
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-              placeholder="rbx_username"
+              value={form.rbxUserId}
+              onChange={(e) => setForm((f) => ({ ...f, rbxUserId: e.target.value }))}
+              placeholder="e.g. 1234567890"
+              inputMode="numeric"
               className={fieldClass}
               required
             />
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-foreground">Password</label>
+            <label className="text-sm font-medium text-foreground">RBX Username</label>
             <Input
-              type="password"
-              value={form.password}
-              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              placeholder="Min 8 chars, mixed case, number, symbol"
+              value={form.username}
+              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+              placeholder="rbx_username"
               className={fieldClass}
               required
             />
@@ -299,32 +321,36 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
           <TableHeader>
             <TableRow>
               <TableHead>Username</TableHead>
+              <TableHead>RBX UserID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Group</TableHead>
               <TableHead>Pro</TableHead>
               <TableHead>Joined</TableHead>
-              <TableHead className="min-w-[220px] text-right">Credentials</TableHead>
+              <TableHead className="min-w-[220px] text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Loading…
                 </TableCell>
               </TableRow>
             ) : users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No users
                 </TableCell>
               </TableRow>
             ) : (
               users.map((u) => (
                 <TableRow key={u.id}>
-                  <TableCell className="max-w-[200px] truncate font-medium" title={u.email}>
-                    {u.username ?? u.email}
+                  <TableCell className="max-w-[200px] truncate font-medium">
+                    {u.username ?? '—'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground tabular-nums">
+                    {u.rbxUserId ?? '—'}
                   </TableCell>
                   <TableCell className="max-w-[140px] truncate text-muted-foreground">
                     {u.name ?? '—'}
@@ -398,6 +424,17 @@ export function UsersAdminTable({ currentUserId, currentUserRole }: UsersAdminTa
                         onClick={() => patchUser(u.id, 'pro', { isPro: !u.isPro })}
                       >
                         {u.isPro ? 'Revoke Pro' : 'Grant Pro'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="border-red-300/50 text-red-700 hover:bg-red-50 dark:border-red-500/30 dark:text-red-300 dark:hover:bg-red-950/30"
+                        disabled={pendingKey === `${u.id}:delete` || u.id === currentUserId}
+                        title={u.id === currentUserId ? 'You cannot delete your own account' : undefined}
+                        onClick={() => deleteUser(u)}
+                      >
+                        Delete
                       </Button>
                     </div>
                   </TableCell>
