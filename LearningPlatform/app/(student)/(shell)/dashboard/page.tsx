@@ -126,7 +126,8 @@ export default async function DashboardPage() {
   for (const [id, p] of Object.entries(progressForYourCourses)) {
     overviewProgress[id] = { progressPercentage: p.progressPercentage, hasStarted: p.hasStarted }
   }
-  const greetingName = (session?.user?.name || session?.user?.email || 'there').toUpperCase()
+  // Greet the signed-in user by their RBX username (carried on session.user.email).
+  const greetingName = (session?.user?.email || session?.user?.name || 'there').toUpperCase()
 
   return (
     <div className="container mx-auto px-5 py-7 md:px-6 md:py-8">
