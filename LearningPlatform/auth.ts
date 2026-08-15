@@ -22,7 +22,8 @@ const RobloxProvider = {
   id: 'roblox',
   name: 'Roblox',
   type: 'oidc' as const,
-  issuer: 'https://apis.roblox.com/oauth',
+  // Must match the `issuer` in Roblox's discovery doc exactly — it has a trailing slash.
+  issuer: 'https://apis.roblox.com/oauth/',
   clientId: process.env.ROBLOX_CLIENT_ID,
   clientSecret: process.env.ROBLOX_CLIENT_SECRET,
   authorization: { params: { scope: 'openid profile' } },
