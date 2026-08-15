@@ -124,6 +124,11 @@ export default async function LessonPage({
     ])
     taskProgressRecords.forEach((tp) => taskProgressMap.set(tp.taskId, tp))
     lessonProgress = lessonProgressRecord
+  } else if (session?.user?.id && isAdmin) {
+    // Staff also track lesson completion (e.g. when reviewing/taking a course).
+    lessonProgress = await prisma.lessonProgress.findUnique({
+      where: { userId_lessonId: { userId: session.user.id, lessonId } },
+    })
   }
 
   const hasNoTasks = tasks.length === 0
@@ -265,7 +270,7 @@ export default async function LessonPage({
               <p className="text-center text-base text-gray-600 dark:text-gray-400 md:text-lg">
                 No tasks for this lesson
               </p>
-              {!isAdmin && hasNoTasks && (
+              {!!session?.user?.id && hasNoTasks && (
                 <AutoCompleteLesson
                   lessonId={lessonId}
                   courseSlug={slug}

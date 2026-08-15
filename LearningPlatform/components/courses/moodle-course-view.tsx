@@ -16,7 +16,6 @@ import {
   SquareStack,
   Zap,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { ArchiveCourseButton, UnarchiveCourseButton } from '@/components/profile/archive-actions'
 
 export type MoodleLesson = {
@@ -210,15 +209,19 @@ export function MoodleCourseView({
                               href={lesson.href}
                               className="flex items-center gap-2 rounded-md px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                             >
-                              <span
-                                aria-hidden
-                                className={cn(
-                                  'h-2.5 w-2.5 shrink-0 rounded-full border',
-                                  lesson.done
-                                    ? 'border-emerald-500 bg-emerald-500'
-                                    : 'border-slate-400 bg-transparent dark:border-slate-500',
-                                )}
-                              />
+                              {lesson.done ? (
+                                <span
+                                  aria-label="Completed"
+                                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                                >
+                                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+                                </span>
+                              ) : (
+                                <span
+                                  aria-hidden
+                                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-400 dark:border-slate-500"
+                                />
+                              )}
                               <span className="min-w-0 truncate">{lesson.title}</span>
                             </Link>
                           </li>
