@@ -111,10 +111,10 @@ export default function PrivacyPolicyPage() {
       <LegalSection heading="11. Contact us">
         <p>
           If you have questions about this Privacy Policy or your data, contact us at{' '}
-          <a className="text-[#2b295c] underline dark:text-indigo-300" href="mailto:support@example.com">
-            support@example.com
+          <a className="text-[#2b295c] underline dark:text-indigo-300" href="mailto:tonydong365@gmail.com">
+            tonydong365@gmail.com
           </a>
-          . (Replace this with your own contact address.)
+          . We are based in Canada.
         </p>
       </LegalSection>
     </LegalPageShell>

@@ -90,18 +90,18 @@ export default function TermsOfServicePage() {
 
       <LegalSection heading="10. Governing law">
         <p>
-          These Terms are governed by the laws of the jurisdiction in which the Platform operator is
-          established, without regard to conflict-of-law principles. (Replace with your governing jurisdiction.)
+          These Terms are governed by the laws of Canada and the applicable province in which the Platform
+          operator is established, without regard to conflict-of-law principles.
         </p>
       </LegalSection>
 
       <LegalSection heading="11. Contact us">
         <p>
           Questions about these Terms? Contact us at{' '}
-          <a className="text-[#2b295c] underline dark:text-indigo-300" href="mailto:support@example.com">
-            support@example.com
+          <a className="text-[#2b295c] underline dark:text-indigo-300" href="mailto:tonydong365@gmail.com">
+            tonydong365@gmail.com
           </a>
-          . (Replace this with your own contact address.)
+          . We are based in Canada.
         </p>
       </LegalSection>
     </LegalPageShell>
