@@ -17,6 +17,8 @@ import {
 import { CourseCatalogCard } from '@/components/courses/course-catalog-card'
 import { studentGlassCard, studentGlassFooterNavButton } from '@/lib/student-glass-styles'
 import { cn } from '@/lib/utils'
+import { auth } from '@/auth'
+import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,6 +30,9 @@ export default async function CoursesPage({ searchParams }: PageProps) {
   const raw = await searchParams
   const filters = parseCatalogSearchParams(raw)
   const payload = await getPayload({ config })
+  const session = await auth()
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const userGroupId = isAdmin ? null : await getUserGroupId(session?.user?.id)
 
   const [{ docs: subjectDocs }, coursesResult] = await Promise.all([
     payload.find({
@@ -36,19 +41,29 @@ export default async function CoursesPage({ searchParams }: PageProps) {
       limit: 500,
       depth: 0,
     }),
+    // Fetch all published courses matching the filters, then apply group-based
+    // visibility and pagination in JS (group membership lives in Prisma, so it
+    // cannot be expressed in a single Payload `where`).
     payload.find({
       collection: 'courses',
       where: buildCoursesCatalogWhere(filters),
       sort: filters.sort,
-      limit: COURSES_CATALOG_PAGE_SIZE,
-      page: filters.page,
+      limit: 1000,
       depth: 1,
     }),
   ])
 
-  const courses = coursesResult.docs
-  const totalDocs =
-    typeof coursesResult.totalDocs === 'number' ? coursesResult.totalDocs : courses.length
+  const visibleCourses = isAdmin
+    ? coursesResult.docs
+    : coursesResult.docs.filter((course) =>
+        courseVisibleToGroup((course as { publishGroupIds?: unknown }).publishGroupIds, userGroupId),
+      )
+
+  const totalDocs = visibleCourses.length
+  const courses = visibleCourses.slice(
+    (filters.page - 1) * COURSES_CATALOG_PAGE_SIZE,
+    filters.page * COURSES_CATALOG_PAGE_SIZE,
+  )
 
   const lastPage = Math.max(1, Math.ceil(totalDocs / COURSES_CATALOG_PAGE_SIZE))
   if (filters.page > lastPage && totalDocs > 0) {

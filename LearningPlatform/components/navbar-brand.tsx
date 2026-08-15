@@ -15,7 +15,7 @@ export function NavbarBrand() {
         heroMarketingGlassText(isDark),
       )}
     >
-      BrainStack
+      Crane Airlines Academy
     </Link>
   )
 }

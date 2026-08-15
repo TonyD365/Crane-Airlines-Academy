@@ -11,7 +11,8 @@ import { checkRateLimit } from '@/lib/rate-limit';
 import { isTokenRevoked, revokeToken } from '@/lib/token-blocklist';
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email format'),
+  // Accounts sign in with their RBX (Roblox) username, not email.
+  username: z.string().min(1, 'Username is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -31,22 +32,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email: { label: 'Email', type: 'email' },
+        username: { label: 'RBX Username', type: 'text' },
         password: { label: 'Hasło', type: 'password' },
       },
       authorize: async (credentials, request) => {
         try {
-          const { email: rawEmail, password } = loginSchema.parse(credentials);
-          const email = rawEmail.toLowerCase();
+          const { username: rawUsername, password } = loginSchema.parse(credentials);
+          const username = rawUsername.trim().toLowerCase();
 
-          // Rate-limit: per IP when known; per email when IP is missing (Docker).
+          // Rate-limit: per IP when known; per username when IP is missing (Docker).
           if (request) {
             const rate = await checkRateLimit({
               request,
               key: 'login',
               limit: 5,
               windowMs: 300_000,
-              identityFallback: email,
+              identityFallback: username,
             });
             if (!rate.allowed) {
               throw new Error('Too many login attempts. Please try again later.');
@@ -54,14 +55,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           }
 
           const user = await prisma.user.findUnique({
-            where: { email },
+            where: { username },
           });
 
           if (!user || !user.passwordHash) {
             // Avoid user enumeration — log without revealing which condition failed
             logActivity({
               action:       ActivityAction.USER_LOGIN_FAILED,
-              actorEmail:   email,
+              actorEmail:   username,
               resourceType: 'user',
             });
             return null;

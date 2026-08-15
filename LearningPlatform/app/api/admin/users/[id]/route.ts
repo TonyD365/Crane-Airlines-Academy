@@ -9,9 +9,11 @@ const patchSchema = z
   .object({
     isPro: z.boolean().optional(),
     role: z.nativeEnum(Role).optional(),
+    // `null` clears the user's group; a string sets it; omitted leaves it unchanged.
+    groupId: z.string().min(1).nullable().optional(),
   })
-  .refine((d) => d.isPro !== undefined || d.role !== undefined, {
-    message: 'Provide isPro and/or role',
+  .refine((d) => d.isPro !== undefined || d.role !== undefined || d.groupId !== undefined, {
+    message: 'Provide isPro, role, and/or groupId',
   })
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -40,9 +42,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: 'You cannot remove your own admin role' }, { status: 403 })
     }
 
-    const data: { isPro?: boolean; role?: Role } = {}
+    if (parsed.data.groupId) {
+      const group = await prisma.group.findUnique({
+        where: { id: parsed.data.groupId },
+        select: { id: true },
+      })
+      if (!group) {
+        return NextResponse.json({ error: 'Selected group does not exist' }, { status: 400 })
+      }
+    }
+
+    const data: { isPro?: boolean; role?: Role; groupId?: string | null } = {}
     if (parsed.data.isPro !== undefined) data.isPro = parsed.data.isPro
     if (parsed.data.role !== undefined) data.role = parsed.data.role
+    if (parsed.data.groupId !== undefined) data.groupId = parsed.data.groupId
 
     await prisma.user.update({
       where: { id },
@@ -69,11 +82,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         metadata: { targetUserId: id, role: parsed.data.role },
       })
     }
+    if (parsed.data.groupId !== undefined) {
+      logActivity({
+        action: ActivityAction.ADMIN_USER_GROUP_UPDATED,
+        actorUserId: admin.id,
+        actorEmail: admin.email,
+        resourceType: 'user',
+        resourceId: id,
+        metadata: { targetUserId: id, groupId: parsed.data.groupId },
+      })
+    }
 
     return NextResponse.json({
       ok: true,
       ...(parsed.data.isPro !== undefined ? { isPro: parsed.data.isPro } : {}),
       ...(parsed.data.role !== undefined ? { role: parsed.data.role } : {}),
+      ...(parsed.data.groupId !== undefined ? { groupId: parsed.data.groupId } : {}),
     })
   } catch (error) {
     if (error instanceof Error) {

@@ -33,6 +33,7 @@ interface Course {
   level: string
   isPublished: boolean
   topics?: string[]
+  publishGroupIds?: string[]
   coverImage?: { id: string | number; filename: string; alt?: string | null } | string | number | null
 }
 
@@ -78,6 +79,10 @@ export function CourseEditor({ course, modules }: { course: Course; modules: Mod
   const [coverMediaId, setCoverMediaId] = useState(() => coverIdFromCourse(course))
   const [coverFilename, setCoverFilename] = useState<string | null>(() => coverFilenameFromCourse(course))
   const [showCoverPicker, setShowCoverPicker] = useState(false)
+  const [groups, setGroups] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>(
+    () => (Array.isArray(course.publishGroupIds) ? course.publishGroupIds : []),
+  )
 
   const coverSig =
     course.coverImage && typeof course.coverImage === 'object'
@@ -111,6 +116,32 @@ export function CourseEditor({ course, modules }: { course: Course; modules: Mod
     }
   }, [])
 
+  useEffect(() => {
+    let isMounted = true
+    const fetchGroups = async () => {
+      try {
+        const res = await fetch('/api/admin/groups')
+        if (!res.ok) return
+        const data = await res.json()
+        if (isMounted && Array.isArray(data.groups)) {
+          setGroups(data.groups.map((g: { id: string; name: string }) => ({ id: g.id, name: g.name })))
+        }
+      } catch {
+        if (isMounted) setGroups([])
+      }
+    }
+    void fetchGroups()
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const toggleGroup = (groupId: string) => {
+    setSelectedGroupIds((prev) =>
+      prev.includes(groupId) ? prev.filter((id) => id !== groupId) : [...prev, groupId],
+    )
+  }
+
 
   const handleUpdateCourse = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -124,6 +155,7 @@ export function CourseEditor({ course, modules }: { course: Course; modules: Mod
       description: formData.get('description') as string,
       subject: formData.get('subject') as string || undefined,
       level: (formData.get('level') as string) || undefined,
+      publishGroupIds: selectedGroupIds,
     }
 
     try {
@@ -366,6 +398,44 @@ export function CourseEditor({ course, modules }: { course: Course; modules: Mod
                     </Button>
                   ) : null}
                 </div>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-base font-medium">Publish to groups</Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Choose which student groups can see this course. Leave all unchecked to publish to
+                every group. Remember to Save after changing this.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {groups.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No groups yet. Create groups under Admin → Groups.
+                  </p>
+                ) : (
+                  groups.map((g) => {
+                    const checked = selectedGroupIds.includes(g.id)
+                    return (
+                      <label
+                        key={g.id}
+                        className={cn(
+                          'inline-flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                          checked
+                            ? 'border-primary/50 bg-primary/10 text-primary dark:bg-primary/20'
+                            : 'border-input bg-background text-foreground hover:bg-muted/40',
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() => toggleGroup(g.id)}
+                        />
+                        {g.name}
+                      </label>
+                    )
+                  })
+                )}
               </div>
             </div>
 

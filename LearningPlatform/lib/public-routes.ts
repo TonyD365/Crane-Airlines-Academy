@@ -9,6 +9,8 @@
 export const PUBLIC_PATHS = [
   '/',
   '/login',
+  // Self-service registration is disabled. The /register page now redirects to
+  // /login; it stays public only so that redirect can run without an auth bounce.
   '/register',
   '/admin/login',
   '/api/ping',

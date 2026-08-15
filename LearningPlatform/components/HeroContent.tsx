@@ -5,9 +5,9 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { heroMarketingBodyClass, heroMarketingGlassText } from '@/lib/hero-marketing-classes'
 
-/** Live hero title: Outfit via `font-hero`, same glass gradient as BrainStack. */
+/** Live hero title: Outfit via `font-hero`, same glass gradient as the brand. */
 const titleMetrics =
-  'font-extrabold tracking-tight text-7xl sm:text-8xl md:text-9xl md:tracking-tighter whitespace-nowrap relative inline-block overflow-visible px-[0.12em]'
+  'font-extrabold tracking-tight text-5xl sm:text-6xl md:text-7xl md:tracking-tighter relative inline-block overflow-visible px-[0.12em]'
 
 export default function HeroContent() {
   const isDark = useIsDark()
@@ -25,16 +25,13 @@ export default function HeroContent() {
             glass,
           )}
         >
-          BrainStack
+          Crane Airlines Academy
         </span>
       </h1>
       <p className={cn('mb-8', heroMarketingBodyClass(isDark))}>
         Platform for courses, lessons, and interactive learning content.
       </p>
       <div className="flex justify-center items-center gap-4">
-        <Button asChild size="lg" variant="hero">
-          <Link href="/register">Get started</Link>
-        </Button>
         <Button asChild size="lg" variant="hero">
           <Link href="/login">Sign in</Link>
         </Button>

@@ -8,6 +8,8 @@ export const courseFormSchema = z.object({
   subject: z.union([z.string(), z.number()]).transform((val) => String(val)),
   level: z.enum(['BEGINNER', 'INTERMEDIATE', 'ADVANCED']),
   coverImage: z.union([z.string().min(1), z.literal('')]).optional(),
+  // Prisma Group ids this course is published to. Empty = visible to all groups.
+  publishGroupIds: z.array(z.string().min(1)).optional(),
   // topics removed; subjects are managed via the Subjects collection
 })
 

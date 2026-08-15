@@ -21,6 +21,7 @@ export default function NewCoursePage() {
     level: '',
     isPublished: false,
     topics: [],
+    publishGroupIds: [],
   }
 
   const modules: any[] = []

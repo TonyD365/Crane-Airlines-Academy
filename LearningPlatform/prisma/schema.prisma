@@ -9,11 +9,16 @@ datasource db {
 model User {
   id                String                  @id @default(cuid())
   email             String                  @unique
+  /// RBX (Roblox) username used to sign in. Accounts are created by admins only.
+  username          String?                 @unique
   name              String?
   passwordHash      String?
   role              Role                    @default(STUDENT)
   /// Pro / VIP — unlocks lesson AI assistant and similar features.
   isPro             Boolean                 @default(false)
+  /// Optional student group. Controls which group-restricted courses are visible.
+  groupId           String?
+  group             Group?                  @relation(fields: [groupId], references: [id], onDelete: SetNull)
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
   courseProgress    CourseProgress[]
@@ -31,7 +36,21 @@ model User {
   creativeActivityEvents             CreativeActivityEvent[]
 
   @@index([email])
+  @@index([username])
+  @@index([groupId])
   @@map("User")
+}
+
+/// A named group of students. Courses can be published to one or more groups;
+/// students only see group-restricted courses when they belong to a listed group.
+model Group {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  members   User[]
+
+  @@map("groups")
 }
 
 model CreativeSpace {

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { BookOpen, BrainCircuit, GraduationCap, Image, Settings, LayoutDashboard, ChevronLeft, ChevronRight, ClipboardList, Tag, ScrollText, Users, Sparkles } from 'lucide-react'
+import { BookOpen, BrainCircuit, GraduationCap, Image, Settings, LayoutDashboard, ChevronLeft, ChevronRight, ClipboardList, Tag, ScrollText, Users, UsersRound, Sparkles } from 'lucide-react'
 import { adminGlassSidebar } from '@/lib/student-glass-styles'
 import { cn } from '@/lib/utils'
 import { useEffect, useState } from 'react'
@@ -57,6 +57,11 @@ const navItems = [
     title: 'Users',
     href: '/admin/users',
     icon: Users,
+  },
+  {
+    title: 'Groups',
+    href: '/admin/groups',
+    icon: UsersRound,
   },
   {
     title: 'Settings',

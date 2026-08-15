@@ -45,6 +45,16 @@ export const ActivityAction = {
   ADMIN_USER_PRO_UPDATED: 'ADMIN_USER_PRO_UPDATED',
   /** Admin changed a user's role (metadata: targetUserId, role). */
   ADMIN_USER_ROLE_UPDATED: 'ADMIN_USER_ROLE_UPDATED',
+  /** Admin created a user account (metadata: targetUserId, username, role). */
+  ADMIN_USER_CREATED: 'ADMIN_USER_CREATED',
+  /** Admin changed a user's group (metadata: targetUserId, groupId). */
+  ADMIN_USER_GROUP_UPDATED: 'ADMIN_USER_GROUP_UPDATED',
+  /** Admin created a student group (metadata: groupId, name). */
+  ADMIN_GROUP_CREATED: 'ADMIN_GROUP_CREATED',
+  /** Admin renamed a student group (metadata: groupId, name). */
+  ADMIN_GROUP_UPDATED: 'ADMIN_GROUP_UPDATED',
+  /** Admin deleted a student group (metadata: groupId). */
+  ADMIN_GROUP_DELETED: 'ADMIN_GROUP_DELETED',
 } as const
 
 export type ActivityActionType = (typeof ActivityAction)[keyof typeof ActivityAction]

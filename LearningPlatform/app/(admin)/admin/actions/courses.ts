@@ -65,6 +65,7 @@ export async function createCourse(data: z.infer<typeof courseFormSchema>) {
       // Store subject as string id (payload uses varchar/uuid ids)
       subject: validated.subject ? String(validated.subject) : undefined,
       isPublished: false,
+      publishGroupIds: validated.publishGroupIds ?? [],
       lastUpdatedBy: admin.email ?? undefined,
       createdVia: 'admin',
     },

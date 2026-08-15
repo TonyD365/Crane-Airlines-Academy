@@ -13,6 +13,12 @@ async function seed() {
 
   // Require a seed password from environment — never hard-code credentials
   const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@example.com'
+  // Accounts sign in with an RBX username; derive a default from the email local part.
+  const adminUsername = (
+    process.env.SEED_ADMIN_USERNAME || adminEmail.split('@')[0] || 'admin'
+  )
+    .trim()
+    .toLowerCase()
   const adminPassword = process.env.SEED_ADMIN_PASSWORD
   if (!adminPassword) {
     logger.error(
@@ -122,15 +128,16 @@ async function seed() {
     try {
       const passwordHash = await bcrypt.hash(adminPassword, 12)
       const authResult = await authPool.query(
-        `INSERT INTO public."User" (id, email, name, "passwordHash", role, "createdAt", "updatedAt")
-         VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+        `INSERT INTO public."User" (id, email, username, name, "passwordHash", role, "createdAt", "updatedAt")
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
          ON CONFLICT (email) DO UPDATE SET
+           username = COALESCE(public."User".username, EXCLUDED.username),
            "passwordHash" = EXCLUDED."passwordHash",
            role = EXCLUDED.role,
            name = COALESCE(EXCLUDED.name, public."User".name),
            "updatedAt" = NOW()
-         RETURNING id, email, role`,
-        ['admin-001', adminEmail, 'Admin User', passwordHash, 'ADMIN']
+         RETURNING id, email, username, role`,
+        ['admin-001', adminEmail, adminUsername, 'Admin User', passwordHash, 'ADMIN']
       )
       if (authResult.rows.length > 0) {
         logger.success('Admin user for NextAuth ready (created or password synced from SEED_ADMIN_PASSWORD)')

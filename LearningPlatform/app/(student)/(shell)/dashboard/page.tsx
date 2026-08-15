@@ -17,6 +17,7 @@ import {
   type CourseProgressSnapshot,
 } from '@/components/dashboard/course-carousel'
 import { fetchPublishedCoursesByIdsInOrder } from '@/lib/started-courses'
+import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
 import { AllCoursesPromo } from '@/components/dashboard/all-courses-promo'
 import { CreativeSpaceDashboardPromo } from '@/components/dashboard/creative-space-dashboard-promo'
 import { studentGlassCard } from '@/lib/student-glass-styles'
@@ -66,6 +67,15 @@ export default async function DashboardPage() {
       ])
       yourCourses = yourTimed.result as CourseSummary[]
       popularCourses = popularTimed.result as CourseSummary[]
+
+      // Hide courses the student's group is not allowed to see (admins exempt).
+      if (session.user.role !== 'ADMIN') {
+        const groupId = await getUserGroupId(session.user.id)
+        const visible = (c: CourseSummary) =>
+          courseVisibleToGroup((c as { publishGroupIds?: unknown }).publishGroupIds, groupId)
+        yourCourses = yourCourses.filter(visible)
+        popularCourses = popularCourses.filter(visible)
+      }
     }
   } catch {
     error = 'Unable to load courses. Please refresh the page.'

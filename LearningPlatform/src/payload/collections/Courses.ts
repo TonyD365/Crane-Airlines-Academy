@@ -136,6 +136,18 @@ export const Courses: CollectionConfig = {
       },
     },
     {
+      // Array of Prisma `Group` ids this course is published to.
+      // Empty means the course is visible to every student (all groups).
+      name: 'publishGroupIds',
+      type: 'json',
+      label: 'Publish to groups',
+      defaultValue: [],
+      admin: {
+        description:
+          'Student group ids this course is visible to. Leave empty to publish to all groups.',
+      },
+    },
+    {
       name: 'lastUpdatedBy',
       type: 'text',
       label: 'Last updated by',

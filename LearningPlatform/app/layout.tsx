@@ -24,8 +24,8 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "BrainStack",
-  description: "BrainStack: courses, lessons, and learning content management.",
+  title: "Crane Airlines Academy",
+  description: "Crane Airlines Academy: courses, lessons, and learning content management.",
   icons: {
     icon: '/favicon.ico',
   },

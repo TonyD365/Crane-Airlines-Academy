@@ -46,7 +46,7 @@ function LoginForm() {
   const isDark = useIsDark();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -76,7 +76,7 @@ function LoginForm() {
       }
 
       const result = await signIn('credentials', {
-        email,
+        username,
         password,
         redirect: false,
       });
@@ -88,7 +88,7 @@ function LoginForm() {
         } else if (result.error.toLowerCase().includes('too many')) {
           setError('Too many login attempts. Please try again later.');
         } else {
-          setError('Invalid email or password');
+          setError('Invalid username or password');
         }
       } else {
         router.push(safeCallbackUrl);
@@ -117,17 +117,17 @@ function LoginForm() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email" className={fieldLabelClass}>
-                Email
+              <Label htmlFor="username" className={fieldLabelClass}>
+                RBX Username
               </Label>
               <Input
-                id="email"
-                name="email"
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                name="username"
+                type="text"
+                placeholder="your-rbx-username"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
                 disabled={isLoading}
                 className={fieldInputClass}
@@ -165,14 +165,9 @@ function LoginForm() {
           </form>
 
           <div className="mt-6 text-center text-sm">
-            <p className={cn('mb-2', glass)}>New here?</p>
-            <button
-              type="button"
-              className={cn('bg-transparent font-medium hover:underline', glass)}
-              onClick={() => router.push('/register')}
-            >
-              Create a user account
-            </button>
+            <p className={cn(glass)}>
+              Accounts are created by an administrator. Contact your admin for access.
+            </p>
           </div>
         </CardContent>
       </Card>
