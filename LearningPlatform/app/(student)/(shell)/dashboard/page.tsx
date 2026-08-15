@@ -1,13 +1,10 @@
 import { auth } from '@/auth'
 import { getPayload } from 'payload'
-import Link from 'next/link'
 import type { CourseProgress } from '@prisma/client'
 
 export const dynamic = 'force-dynamic'
 import config from '@payload-config'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { ReloadButton } from '@/components/ui/reload-button'
 import { timeAsync, cn } from '@/lib/utils'
 import { getUserStats, getAllCourseProgress, getPopularCourseIds } from '@/app/actions/progress'
 import { FlashcardDashboardSection } from '@/components/dashboard/flashcard-section'
@@ -20,6 +17,11 @@ import { fetchPublishedCoursesByIdsInOrder } from '@/lib/started-courses'
 import { courseVisibleToGroup, getUserGroupId } from '@/lib/course-visibility'
 import { isStaffRole } from '@/lib/roles'
 import { AllCoursesPromo } from '@/components/dashboard/all-courses-promo'
+import {
+  MoodleCourseOverview,
+  type OverviewCourse,
+  type OverviewProgress,
+} from '@/components/dashboard/moodle-course-overview'
 import { CreativeSpaceDashboardPromo } from '@/components/dashboard/creative-space-dashboard-promo'
 import { studentGlassCard } from '@/lib/student-glass-styles'
 export default async function DashboardPage() {
@@ -104,17 +106,42 @@ export default async function DashboardPage() {
     progressForYourCourses[id] = { ...base, hasStarted: true }
   }
 
+  // Shape data for the Moodle-style course overview.
+  const overviewCourses: OverviewCourse[] = yourCourses.map((course) => {
+    const subject = (course as { subject?: unknown }).subject
+    const category =
+      typeof subject === 'string'
+        ? subject
+        : (subject as { name?: string } | null | undefined)?.name ?? ''
+    const cover = (course as { coverImage?: { filename?: string } | null }).coverImage
+    return {
+      id: String(course.id),
+      title: course.title ?? 'Untitled course',
+      slug: course.slug ?? '',
+      category,
+      imageFilename: cover?.filename ?? null,
+    }
+  })
+  const overviewProgress: Record<string, OverviewProgress> = {}
+  for (const [id, p] of Object.entries(progressForYourCourses)) {
+    overviewProgress[id] = { progressPercentage: p.progressPercentage, hasStarted: p.hasStarted }
+  }
+  const greetingName = (session?.user?.name || session?.user?.email || 'there').toUpperCase()
+
   return (
     <div className="container mx-auto px-5 py-7 md:px-6 md:py-8">
-      <div className="mx-auto w-full max-w-5xl space-y-8">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 md:text-4xl">
-            Welcome, {session?.user?.name || session?.user?.email}!
-          </h1>
-          <p className="mt-2 text-base leading-relaxed text-gray-600 dark:text-gray-400 md:text-lg">
-            Ready for your next learning session?
-          </p>
-        </div>
+      <div className="mx-auto w-full max-w-6xl space-y-10">
+        {error ? (
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center text-sm text-red-700 dark:border-red-500/30 dark:bg-red-950/30 dark:text-red-300">
+            {error}
+          </div>
+        ) : (
+          <MoodleCourseOverview
+            userName={greetingName}
+            courses={overviewCourses}
+            progressByCourseId={overviewProgress}
+          />
+        )}
 
         <div className="grid w-full gap-5 md:grid-cols-3 md:gap-6">
           <Card className={cn('border-0 shadow-none', studentGlassCard)}>
@@ -151,46 +178,6 @@ export default async function DashboardPage() {
 
         <div className="w-full">
           <RecommendedPracticeCard />
-        </div>
-
-        <div className="w-full">
-          <div className="mb-4 text-center md:mb-5">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100 md:text-4xl">
-              Your courses
-            </h2>
-          </div>
-
-          {error ? (
-            <Card className={cn('border-0 shadow-none', studentGlassCard)}>
-              <CardContent className="pt-6">
-                <p className="mb-4 text-center text-base leading-relaxed text-red-600 dark:text-red-400 md:text-lg">
-                  {error}
-                </p>
-                <div className="flex justify-center">
-                  <ReloadButton variant="hero" />
-                </div>
-              </CardContent>
-            </Card>
-          ) : yourCourses.length === 0 ? (
-            <Card className={cn('border-0 shadow-none', studentGlassCard)}>
-              <CardContent className="space-y-4 pt-6">
-                <p className="text-center text-base leading-relaxed text-gray-600 dark:text-gray-400 md:text-lg">
-                  You have not started any courses yet. Browse the catalog to begin learning.
-                </p>
-                <div className="flex justify-center">
-                  <Button asChild variant="hero" className="auth-hero-cta">
-                    <Link href="/courses">Browse courses</Link>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <CourseCarousel
-              courses={yourCourses}
-              progressByCourseId={progressForYourCourses}
-              scrollAriaLabel="Your courses"
-            />
-          )}
         </div>
 
         <div className="w-full">
