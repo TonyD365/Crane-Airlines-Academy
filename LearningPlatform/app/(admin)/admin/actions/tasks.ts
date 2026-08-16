@@ -9,6 +9,7 @@ import { taskFormSchema } from '../schemas'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
+import { ensureTaskIdDefaults } from '@/lib/ensure-task-id-defaults'
 
 export async function getTasksByLesson(lessonId: string) {
   await requireAdmin()
@@ -28,6 +29,10 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
     const admin = await requireAdmin()
     const validated = taskFormSchema.parse(data)
     const payload = await getPayload({ config })
+
+    // Ensure the tasks/tasks_choices primary keys have a working default before
+    // inserting (production DB never had the migration applied).
+    await ensureTaskIdDefaults(payload)
 
     // Transform choices array to Payload format
     const choicesForPayload = validated.choices
