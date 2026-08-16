@@ -75,17 +75,28 @@ export async function POST(request: NextRequest) {
 
     const ext = path.extname(safeName)
     const base = path.basename(safeName, ext) || 'upload'
+    const uniqueName = `${base}-${randomBytes(4).toString('hex')}${ext}`
 
-    let finalName = safeName
-    let remoteKey: string | null = null
+    const { getPayload } = await import('payload')
+    const config = (await import('@payload-config')).default
+    const payload = await getPayload({ config })
 
+    // Create the Payload media record from the in-memory buffer. With
+    // disableLocalStorage, Payload extracts metadata from the buffer without
+    // touching the (read-only) serverless filesystem and without fetching the
+    // file over HTTP — which previously caused ENOENT / "http://null" errors.
+    const media = await payload.create({
+      collection: 'media',
+      data: { alt: originalName },
+      file: { data: buffer, mimetype: file.type, name: uniqueName, size: buffer.length },
+    })
+    const finalName = String((media as { filename?: string }).filename || uniqueName)
+
+    // Persist the actual bytes: S3 in production, public/media in local dev.
     if (isS3Configured()) {
-      // Production (Vercel/Railway): store in object storage only. The serverless
-      // filesystem is read-only, so we never touch public/media here. A random
-      // suffix guarantees a unique key without a disk or bucket existence check.
-      finalName = `${base}-${randomBytes(4).toString('hex')}${ext}`
-      remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
-      if (!remoteKey) {
+      const key = await uploadBufferToS3(buffer, finalName, file.type)
+      if (!key) {
+        await payload.delete({ collection: 'media', id: String(media.id) }).catch(() => {})
         return NextResponse.json({ error: 'Failed to store file' }, { status: 500 })
       }
     } else {
@@ -94,13 +105,9 @@ export async function POST(request: NextRequest) {
       const publicDir = path.join(process.cwd(), 'public', 'media')
       try {
         if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
-        let attempt = 0
-        while (fs.existsSync(path.join(publicDir, finalName))) {
-          attempt += 1
-          finalName = `${base}-${attempt}${ext}`
-        }
         fs.writeFileSync(path.join(publicDir, finalName), buffer)
       } catch (err) {
+        await payload.delete({ collection: 'media', id: String(media.id) }).catch(() => {})
         console.error('[ERROR] Local media write failed and no S3 is configured:', err)
         return NextResponse.json(
           {
@@ -112,28 +119,14 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create Payload media record with metadata only (no file buffer to avoid body-lock)
-    const { getPayload } = await import('payload')
-    const config = (await import('@payload-config')).default
-    const payload = await getPayload({ config })
-    
-    // ALWAYS use our serve endpoint as the stored URL.
-    // /api/media/serve/[key] handles both S3 (via signed URL redirect) and local disk.
-    // Never store raw S3 URLs - buckets are private and signed URLs expire.
+    // Point the record at our same-origin serve endpoint (buckets are private;
+    // /api/media/serve streams from S3 or local disk).
     const publicUrl = `/api/media/serve/${encodeURIComponent(finalName)}`
-    
-    const media = await payload.create({
-      collection: 'media',
-      data: {
-        filename: finalName,
-        mimeType: file.type,
-        filesize: buffer.length,
-        alt: originalName,
-        url: publicUrl,
-      },
-    })
+    await payload
+      .update({ collection: 'media', id: String(media.id), data: { url: publicUrl } })
+      .catch(() => {})
 
-    console.log(`[SUCCESS] Upload successful: ${finalName} (${buffer.length} bytes) -> ${remoteKey ? 'S3' : 'local'} ${publicUrl}`)
+    console.log(`[SUCCESS] Upload successful: ${finalName} (${buffer.length} bytes) -> ${isS3Configured() ? 'S3' : 'local'} ${publicUrl}`)
 
     logActivity({
       action:       ActivityAction.MEDIA_UPLOADED,

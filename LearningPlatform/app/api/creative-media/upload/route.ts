@@ -65,29 +65,36 @@ export async function POST(request: NextRequest) {
 
     const ext = path.extname(safeName)
     const base = path.basename(safeName, ext) || 'upload'
+    const uniqueName = `${base}-${randomBytes(4).toString('hex')}${ext}`
 
-    let finalName = safeName
-    let remoteKey: string | null = null
+    const { getPayload } = await import('payload')
+    const config = (await import('@payload-config')).default
+    const payload = await getPayload({ config })
 
+    // Create the media record from the in-memory buffer (disableLocalStorage
+    // keeps Payload off the read-only serverless filesystem — no disk read/fetch).
+    const media = await payload.create({
+      collection: 'media',
+      data: { alt: originalName },
+      file: { data: buffer, mimetype: file.type, name: uniqueName, size: buffer.length },
+      overrideAccess: true,
+    })
+    const finalName = String((media as { filename?: string }).filename || uniqueName)
+
+    // Persist the actual bytes: S3 in production, public/media in local dev.
     if (isS3Configured()) {
-      // Production: object storage only (serverless filesystem is read-only).
-      finalName = `${base}-${randomBytes(4).toString('hex')}${ext}`
-      remoteKey = await uploadBufferToS3(buffer, finalName, file.type)
-      if (!remoteKey) {
+      const key = await uploadBufferToS3(buffer, finalName, file.type)
+      if (!key) {
+        await payload.delete({ collection: 'media', id: String(media.id), overrideAccess: true }).catch(() => {})
         return NextResponse.json({ error: 'Failed to store file' }, { status: 500 })
       }
     } else {
-      // Local/dev only: write to public/media (requires a writable filesystem).
       const publicDir = path.join(process.cwd(), 'public', 'media')
       try {
         if (!fs.existsSync(publicDir)) fs.mkdirSync(publicDir, { recursive: true })
-        let attempt = 0
-        while (fs.existsSync(path.join(publicDir, finalName))) {
-          attempt += 1
-          finalName = `${base}-${attempt}${ext}`
-        }
         fs.writeFileSync(path.join(publicDir, finalName), buffer)
       } catch (err) {
+        await payload.delete({ collection: 'media', id: String(media.id), overrideAccess: true }).catch(() => {})
         console.error('[POST /api/creative-media/upload] local write failed, no S3:', err)
         return NextResponse.json(
           { error: 'File storage is not configured. Configure S3 storage to upload media.' },
@@ -96,22 +103,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { getPayload } = await import('payload')
-    const config = (await import('@payload-config')).default
-    const payload = await getPayload({ config })
-
     const publicUrl = `/api/media/serve/${encodeURIComponent(finalName)}`
-    const media = await payload.create({
-      collection: 'media',
-      data: {
-        filename: finalName,
-        mimeType: file.type,
-        filesize: buffer.length,
-        alt: originalName,
-        url: publicUrl,
-      },
-      overrideAccess: true,
-    })
+    await payload
+      .update({ collection: 'media', id: String(media.id), data: { url: publicUrl }, overrideAccess: true })
+      .catch(() => {})
 
     return NextResponse.json({ success: true, url: publicUrl, id: media.id, filename: finalName })
   } catch (error) {
