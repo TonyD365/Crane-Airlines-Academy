@@ -1,5 +1,6 @@
 'use server'
 
+import { randomUUID } from 'crypto'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { requireAdmin } from '@/lib/auth-helpers'
@@ -34,9 +35,11 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
     // inserting (production DB never had the migration applied).
     await ensureTaskIdDefaults(payload)
 
-    // Transform choices array to Payload format
+    // Transform choices array to Payload format.
+    // Generate an explicit id for each choice row: payload.tasks_choices.id has
+    // no DB default, so relying on `VALUES (default)` inserts NULL into its PK.
     const choicesForPayload = validated.choices
-      ? validated.choices.map(text => ({ text }))
+      ? validated.choices.map(text => ({ id: randomUUID(), text }))
       : undefined
 
     // Convert media IDs to strings for database column type
@@ -59,6 +62,9 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
     const task = await payload.create({
       collection: 'tasks',
       data: {
+        // Explicit PK: payload.tasks.id lost its DB default during the
+        // varchar conversion, so `VALUES (default)` would insert NULL.
+        id: randomUUID(),
         ...(validated.lesson?.length ? { lesson: validated.lesson } : {}),
         title: taskTitle,
         type: validated.type,
