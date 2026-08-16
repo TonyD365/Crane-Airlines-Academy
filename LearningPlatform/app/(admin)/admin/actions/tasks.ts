@@ -95,7 +95,22 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
     revalidatePath('/admin/tasks')
     return task
   } catch (error) {
-    logger.error('createTask error', { error })
+    // drizzle wraps the real Postgres error in `.cause`; surface its fields so
+    // the true failure (column/constraint/code) is visible in the logs.
+    const cause = (error as { cause?: Record<string, unknown> })?.cause
+    logger.error('createTask error', {
+      message: error instanceof Error ? error.message : String(error),
+      cause: cause
+        ? {
+            message: (cause as { message?: unknown }).message,
+            code: (cause as { code?: unknown }).code,
+            detail: (cause as { detail?: unknown }).detail,
+            column: (cause as { column?: unknown }).column,
+            constraint: (cause as { constraint?: unknown }).constraint,
+            table: (cause as { table?: unknown }).table,
+          }
+        : undefined,
+    })
 
     if (error instanceof z.ZodError) {
       throw new Error(`Validation failed: ${error.issues.map((e: any) => e.message).join(', ')}`)
