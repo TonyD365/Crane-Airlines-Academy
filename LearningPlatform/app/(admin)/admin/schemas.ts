@@ -70,8 +70,11 @@ export const taskFormSchema = z.object({
   choices: z.array(z.string()).optional(),
   correctAnswer: z.string().optional(),
   solution: z.union([z.string(), z.any()]).optional().transform((val) => {
+    // Empty/blank → undefined so we never insert "" into the jsonb column
+    // (Postgres rejects an empty string as invalid JSON).
+    if (val == null || (typeof val === 'string' && val.trim() === '')) return undefined
     // If it's a string, convert to Lexical format
-    if (typeof val === 'string' && val) {
+    if (typeof val === 'string') {
       return {
         root: {
           type: 'root',
