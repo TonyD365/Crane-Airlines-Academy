@@ -9,7 +9,7 @@ import { taskFormSchema } from '../schemas'
 import { prisma } from '@/lib/prisma'
 import { logger } from '@/lib/logger'
 import { logActivity, ActivityAction } from '@/lib/activity-log'
-import { ensureTaskIdDefaults } from '@/lib/ensure-task-id-defaults'
+import { ensureTasksSchema } from '@/lib/ensure-tasks-schema'
 
 export async function getTasksByLesson(lessonId: string) {
   await requireAdmin()
@@ -30,9 +30,9 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
     const validated = taskFormSchema.parse(data)
     const payload = await getPayload({ config })
 
-    // Ensure the tasks/tasks_choices primary keys have a working default before
-    // inserting (production DB never had the migration applied).
-    await ensureTaskIdDefaults()
+    // Repair the tasks schema (missing auto_grade column etc.) before inserting;
+    // the production DB never has the migrations applied.
+    await ensureTasksSchema()
 
     // Transform choices array to Payload format
     const choicesForPayload = validated.choices
@@ -141,6 +141,9 @@ export async function createTask(data: z.infer<typeof taskFormSchema>) {
 export async function updateTask(id: string, data: Partial<z.infer<typeof taskFormSchema>>) {
   const admin = await requireAdmin()
   const payload = await getPayload({ config })
+
+  // Same schema repair as createTask (the update touches auto_grade too).
+  await ensureTasksSchema()
 
   const validated = taskFormSchema.partial().parse(data)
 
