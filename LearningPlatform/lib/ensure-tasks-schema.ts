@@ -39,6 +39,12 @@ export async function ensureTasksSchema(): Promise<void> {
     await pool.query(
       `ALTER TABLE "payload"."tasks" ALTER COLUMN "correct_answer" DROP NOT NULL`,
     )
+    // The `tags` array field maps `tagId` -> tag_id, but the tasks_tags table
+    // only has the legacy `tag` column. Payload's read-back SELECT references
+    // tasks_tags.tag_id, so it must exist.
+    await pool.query(
+      `ALTER TABLE "payload"."tasks_tags" ADD COLUMN IF NOT EXISTS "tag_id" varchar`,
+    )
 
     // Belt-and-suspenders: guarantee the primary keys can auto-generate an id,
     // in case an older bootstrap left them without a usable default.

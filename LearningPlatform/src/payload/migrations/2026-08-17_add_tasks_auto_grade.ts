@@ -12,6 +12,11 @@ import { sql } from 'drizzle-orm'
  *
  * Also relax `correct_answer` to nullable: it is optional in the collection
  * (open-ended tasks have no correct answer), but the column was NOT NULL.
+ *
+ * And add the missing `tasks_tags.tag_id` column: the `tags` array field maps
+ * `tagId` -> tag_id, but the table only had the legacy `tag` column, so
+ * Payload's read-back SELECT failed with `column tasks_tags.tag_id does not
+ * exist`.
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
@@ -21,6 +26,10 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     ALTER TABLE IF EXISTS "payload"."tasks"
       ALTER COLUMN "correct_answer" DROP NOT NULL;
+  `)
+  await db.execute(sql`
+    ALTER TABLE IF EXISTS "payload"."tasks_tags"
+      ADD COLUMN IF NOT EXISTS "tag_id" varchar;
   `)
 }
 
